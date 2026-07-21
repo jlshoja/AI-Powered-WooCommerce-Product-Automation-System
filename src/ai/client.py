@@ -8,8 +8,8 @@ Integrates with AI models (e.g., OpenAI) to generate:
 - Category suggestions
 """
 
-from typing import Optional, Dict, Any, List
 from openai import OpenAI
+
 from src.utils.logger import Logger
 
 
@@ -23,7 +23,7 @@ class AIClient:
         self.client = OpenAI(api_key=api_key)
         self.logger = Logger(__name__).get_logger()
 
-    def generate_seo_title(self, product_name: str, attributes: Dict[str, List[str]]) -> Optional[str]:
+    def generate_seo_title(self, product_name: str, attributes: dict[str, list[str]]) -> str | None:
         """Generate an SEO title for a product."""
         try:
             prompt = (
@@ -31,13 +31,11 @@ class AIClient:
                 f"with the following attributes: {attributes}. "
                 "The title should be concise, include relevant keywords, and be under 60 characters."
             )
-            
+
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=60
+                model=self.model, messages=[{"role": "user", "content": prompt}], max_tokens=60
             )
-            
+
             seo_title = response.choices[0].message.content.strip()
             self.logger.info(f"Generated SEO title for {product_name}: {seo_title}")
             return seo_title
@@ -45,7 +43,7 @@ class AIClient:
             self.logger.error(f"Failed to generate SEO title for {product_name}: {e}")
             return None
 
-    def generate_seo_description(self, product_name: str, description: str) -> Optional[str]:
+    def generate_seo_description(self, product_name: str, description: str) -> str | None:
         """Generate an SEO description for a product."""
         try:
             prompt = (
@@ -53,13 +51,11 @@ class AIClient:
                 f"Here is the current description: '{description}'. "
                 "The description should be concise, include relevant keywords, and be under 160 characters."
             )
-            
+
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=160
+                model=self.model, messages=[{"role": "user", "content": prompt}], max_tokens=160
             )
-            
+
             seo_description = response.choices[0].message.content.strip()
             self.logger.info(f"Generated SEO description for {product_name}: {seo_description}")
             return seo_description
@@ -67,7 +63,9 @@ class AIClient:
             self.logger.error(f"Failed to generate SEO description for {product_name}: {e}")
             return None
 
-    def generate_product_description(self, product_name: str, attributes: Dict[str, List[str]]) -> Optional[str]:
+    def generate_product_description(
+        self, product_name: str, attributes: dict[str, list[str]]
+    ) -> str | None:
         """Generate a product description."""
         try:
             prompt = (
@@ -75,21 +73,23 @@ class AIClient:
                 f"with the following attributes: {attributes}. "
                 "The description should highlight key features, benefits, and use cases."
             )
-            
+
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=300
+                model=self.model, messages=[{"role": "user", "content": prompt}], max_tokens=300
             )
-            
+
             product_description = response.choices[0].message.content.strip()
-            self.logger.info(f"Generated product description for {product_name}: {product_description}")
+            self.logger.info(
+                f"Generated product description for {product_name}: {product_description}"
+            )
             return product_description
         except Exception as e:
             self.logger.error(f"Failed to generate product description for {product_name}: {e}")
             return None
 
-    def generate_tags(self, product_name: str, attributes: Dict[str, List[str]]) -> Optional[List[str]]:
+    def generate_tags(
+        self, product_name: str, attributes: dict[str, list[str]]
+    ) -> list[str] | None:
         """Generate tags for a product."""
         try:
             prompt = (
@@ -97,13 +97,11 @@ class AIClient:
                 f"with the following attributes: {attributes}. "
                 "The tags should be comma-separated."
             )
-            
+
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50
+                model=self.model, messages=[{"role": "user", "content": prompt}], max_tokens=50
             )
-            
+
             tags = [tag.strip() for tag in response.choices[0].message.content.split(",")]
             self.logger.info(f"Generated tags for {product_name}: {tags}")
             return tags
@@ -111,7 +109,9 @@ class AIClient:
             self.logger.error(f"Failed to generate tags for {product_name}: {e}")
             return None
 
-    def suggest_categories(self, product_name: str, attributes: Dict[str, List[str]]) -> Optional[List[str]]:
+    def suggest_categories(
+        self, product_name: str, attributes: dict[str, list[str]]
+    ) -> list[str] | None:
         """Suggest categories for a product."""
         try:
             prompt = (
@@ -119,13 +119,11 @@ class AIClient:
                 f"with the following attributes: {attributes}. "
                 "The categories should be comma-separated."
             )
-            
+
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50
+                model=self.model, messages=[{"role": "user", "content": prompt}], max_tokens=50
             )
-            
+
             categories = [cat.strip() for cat in response.choices[0].message.content.split(",")]
             self.logger.info(f"Suggested categories for {product_name}: {categories}")
             return categories

@@ -9,8 +9,10 @@ Tests:
 - Category suggestion
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
+
 from src.ai.client import AIClient
 from src.ai.manager import AIManager
 from src.excel_parser.models import Product
@@ -92,17 +94,24 @@ def test_process_product(ai_manager):
         seo_description=None,
         images=[],
         attributes={"رنگ": ["سبز"]},
-        variations=[]
+        variations=[],
     )
-    
-    with patch.object(ai_manager.ai_client, "generate_seo_title", return_value="عنوان سئو بهینه"), \
-         patch.object(ai_manager.ai_client, "generate_seo_description", return_value="توضیحات سئو بهینه"), \
-         patch.object(ai_manager.ai_client, "generate_product_description", return_value="توضیحات کامل محصول"), \
-         patch.object(ai_manager.ai_client, "generate_tags", return_value=["چرم", "کیف مردانه"]), \
-         patch.object(ai_manager.ai_client, "suggest_categories", return_value=["کیف مردانه", "اکسسوری"]):
-        
+
+    with (
+        patch.object(ai_manager.ai_client, "generate_seo_title", return_value="عنوان سئو بهینه"),
+        patch.object(
+            ai_manager.ai_client, "generate_seo_description", return_value="توضیحات سئو بهینه"
+        ),
+        patch.object(
+            ai_manager.ai_client, "generate_product_description", return_value="توضیحات کامل محصول"
+        ),
+        patch.object(ai_manager.ai_client, "generate_tags", return_value=["چرم", "کیف مردانه"]),
+        patch.object(
+            ai_manager.ai_client, "suggest_categories", return_value=["کیف مردانه", "اکسسوری"]
+        ),
+    ):
         processed_product = ai_manager.process_product(product)
-        
+
         assert processed_product.seo_title == "عنوان سئو بهینه"
         assert processed_product.seo_description == "توضیحات سئو بهینه"
         assert processed_product.description == "توضیحات کامل محصول"

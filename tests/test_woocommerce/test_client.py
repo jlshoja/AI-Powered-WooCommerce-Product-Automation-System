@@ -8,10 +8,12 @@ Tests:
 - Retry logic
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
+
+from src.excel_parser.models import Product, ProductImage, Variation
 from src.woocommerce.client import WooCommerceClient
-from src.excel_parser.models import Product, Variation, ProductImage
 
 
 @pytest.fixture
@@ -22,7 +24,7 @@ def client():
         consumer_key="ck_test",
         consumer_secret="cs_test",
         timeout=30,
-        max_retries=3
+        max_retries=3,
     )
 
 
@@ -51,15 +53,17 @@ def test_create_product_success(client):
         stock_quantity=10,
         stock_status="instock",
         categories=["کیف مردانه"],
-        images=[ProductImage(
-            id="1",
-            product_sku="2106",
-            image_url="/uploads/2026/07/men-bag-2106-main.webp",
-            is_main=True
-        )],
-        attributes={"رنگ": ["سبز", "سرمه ای"]}
+        images=[
+            ProductImage(
+                id="1",
+                product_sku="2106",
+                image_url="/uploads/2026/07/men-bag-2106-main.webp",
+                is_main=True,
+            )
+        ],
+        attributes={"رنگ": ["سبز", "سرمه ای"]},
     )
-    
+
     with patch.object(client, "_retry_request") as mock_retry:
         mock_retry.return_value = {"id": 123, "sku": "2106"}
         response = client.create_product(product)
@@ -78,9 +82,9 @@ def test_update_product_success(client):
         stock_status="instock",
         categories=["کیف مردانه"],
         images=[],
-        attributes={}
+        attributes={},
     )
-    
+
     with patch.object(client, "_retry_request") as mock_retry:
         mock_retry.return_value = {"id": 123, "sku": "2106"}
         response = client.update_product(123, product)
@@ -96,15 +100,17 @@ def test_create_variation_success(client):
         regular_price=342000,
         stock_quantity=10,
         stock_status="instock",
-        images=[ProductImage(
-            id="1",
-            product_sku="2106-green",
-            image_url="/uploads/2026/07/men-bag-2106-green.webp",
-            is_main=True
-        )],
-        attributes={"رنگ": "سبز"}
+        images=[
+            ProductImage(
+                id="1",
+                product_sku="2106-green",
+                image_url="/uploads/2026/07/men-bag-2106-green.webp",
+                is_main=True,
+            )
+        ],
+        attributes={"رنگ": "سبز"},
     )
-    
+
     with patch.object(client, "_retry_request") as mock_retry:
         mock_retry.return_value = {"id": 456, "sku": "2106-green"}
         response = client.create_variation(123, variation)

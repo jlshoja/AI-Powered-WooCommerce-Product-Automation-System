@@ -7,9 +7,11 @@ Tests:
 - Progress tracking
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.automation.importer import BatchImporter
 from src.automation.scheduler import Scheduler
 from src.automation.tracker import ProgressTracker
@@ -49,13 +51,13 @@ def test_import_products_success(batch_importer):
         categories=["کیف مردانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     with patch.object(batch_importer.woocommerce_client, "upsert_product") as mock_create:
         mock_create.return_value = {"id": 123}
         batch_importer.import_products([product])
-        
+
         assert len(batch_importer.tracker.imported_products) == 1
         assert batch_importer.tracker.imported_products[0]["sku"] == "TEST001"
 
@@ -73,13 +75,13 @@ def test_import_products_failure(batch_importer):
         categories=["کیف مردانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     with patch.object(batch_importer.woocommerce_client, "upsert_product") as mock_create:
         mock_create.return_value = None
         batch_importer.import_products([product])
-        
+
         assert len(batch_importer.tracker.failed_products) == 1
         assert batch_importer.tracker.failed_products[0]["sku"] == "TEST001"
 
@@ -97,13 +99,13 @@ def test_schedule_import(scheduler):
         categories=["کیف مردانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     with patch.object(scheduler.importer, "import_products") as mock_import:
         schedule_time = datetime.now() + timedelta(seconds=1)
         scheduler.schedule_import([product], schedule_time)
-        
+
         mock_import.assert_called_once_with([product])
 
 
@@ -120,9 +122,9 @@ def test_incremental_import(scheduler):
         categories=["کیف مردانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     product2 = Product(
         id=datetime.now().strftime("%Y%m%d%H%M%S"),
         post_title="کیف زنانه",
@@ -134,13 +136,13 @@ def test_incremental_import(scheduler):
         categories=["کیف زنانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     with patch.object(scheduler.importer, "import_products") as mock_import:
         last_import_time = datetime.now() - timedelta(hours=1)
         scheduler.incremental_import([product1, product2], last_import_time)
-        
+
         mock_import.assert_called_once_with([product2])
 
 
@@ -157,15 +159,15 @@ def test_progress_tracker(progress_tracker):
         categories=["کیف مردانه"],
         images=[],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     progress_tracker.track_success(product)
     progress_tracker.track_failure(product, "Test error")
-    
+
     assert len(progress_tracker.imported_products) == 1
     assert len(progress_tracker.failed_products) == 1
-    
+
     with patch("pandas.DataFrame.to_excel") as mock_to_excel:
         progress_tracker.generate_report("test_report.xlsx")
         mock_to_excel.assert_called_once()

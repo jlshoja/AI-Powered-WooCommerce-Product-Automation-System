@@ -5,9 +5,10 @@ Uploads images to WordPress and attaches them to products/variations.
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any
-from src.woocommerce.client import WooCommerceClient
+from typing import Any
+
 from src.utils.logger import Logger
+from src.woocommerce.client import WooCommerceClient
 
 
 class ImageUploader:
@@ -18,21 +19,17 @@ class ImageUploader:
         self.woocommerce_client = woocommerce_client
         self.logger = Logger(__name__).get_logger()
 
-    def upload_image(self, image_path: Path, alt_text: str = "", title: str = "") -> Optional[Dict[str, Any]]:
+    def upload_image(
+        self, image_path: Path, alt_text: str = "", title: str = ""
+    ) -> dict[str, Any] | None:
         """Upload an image to WordPress."""
         try:
             # Prepare the payload
-            payload = {
-                "file": open(image_path, "rb"),
-                "alt_text": alt_text,
-                "title": title
-            }
-            
+            payload = {"file": open(image_path, "rb"), "alt_text": alt_text, "title": title}
+
             # Upload the image
-            response = self.woocommerce_client._retry_request(
-                "post", "media", files=payload
-            )
-            
+            response = self.woocommerce_client._retry_request("post", "media", files=payload)
+
             if response:
                 self.logger.info(f"Image uploaded: {image_path.name}")
                 return response
@@ -43,16 +40,16 @@ class ImageUploader:
             self.logger.error(f"Failed to upload image {image_path.name}: {e}")
             return None
 
-    def attach_image_to_product(self, product_id: int, image_id: int, is_main: bool = False) -> bool:
+    def attach_image_to_product(
+        self, product_id: int, image_id: int, is_main: bool = False
+    ) -> bool:
         """Attach an image to a product."""
         try:
-            payload = {
-                "images": [{"id": image_id, "position": 0 if is_main else 1}]
-            }
+            payload = {"images": [{"id": image_id, "position": 0 if is_main else 1}]}
             response = self.woocommerce_client._retry_request(
                 "put", f"products/{product_id}", data=payload
             )
-            
+
             if response:
                 self.logger.info(f"Image {image_id} attached to product {product_id}")
                 return True
@@ -70,7 +67,7 @@ class ImageUploader:
             response = self.woocommerce_client._retry_request(
                 "put", f"products/{product_id}/variations/{variation_id}", data=payload
             )
-            
+
             if response:
                 self.logger.info(f"Image {image_id} attached to variation {variation_id}")
                 return True

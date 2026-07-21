@@ -4,13 +4,14 @@ Live test for the reconstructed system.
 Proves all files are functional.
 """
 
-import yaml
 from pathlib import Path
+
+import yaml
 
 # 1. Test settings.yaml
 print("🔍 Testing config/settings.yaml...")
 try:
-    with open(Path("config/settings.yaml"), "r", encoding="utf-8") as f:
+    with open(Path("config/settings.yaml"), encoding="utf-8") as f:
         settings = yaml.safe_load(f)
     assert "woocommerce" in settings, "Missing 'woocommerce' in settings.yaml"
     assert "excel" in settings, "Missing 'excel' in settings.yaml"
@@ -41,7 +42,7 @@ except Exception as e:
 # 4. Test src/main.py
 print("🔍 Testing src/main.py...")
 try:
-    with open(Path("src/main.py"), "r", encoding="utf-8") as f:
+    with open(Path("src/main.py"), encoding="utf-8") as f:
         content = f.read()
     assert "WooCommerceClient" in content, "Missing WooCommerceClient in main.py"
     assert "ExcelReader" in content, "Missing ExcelReader in main.py"

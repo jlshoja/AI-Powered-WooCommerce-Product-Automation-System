@@ -9,11 +9,12 @@ Tests:
 - Reading Images worksheet
 """
 
-import pytest
 from pathlib import Path
-from src.excel_parser.reader import ExcelReader
-from src.excel_parser.models import Product, Variation, Category, Attribute, ProductImage
 
+import pytest
+
+from src.excel_parser.models import Attribute, Category, Product, ProductImage, Variation
+from src.excel_parser.reader import ExcelReader
 
 # Path to the test Excel file (relative to project root)
 TEST_EXCEL_PATH = Path(__file__).parent.parent.parent / "output" / "Product_Master.xlsx"
@@ -31,7 +32,7 @@ def test_read_products(excel_reader):
     """Test reading the Products worksheet."""
     products = excel_reader.read_products()
     assert len(products) > 0
-    
+
     # Check the first product
     product = products[0]
     assert isinstance(product, Product)
@@ -48,7 +49,7 @@ def test_read_variations(excel_reader):
     """Test reading the Variations worksheet."""
     variations = excel_reader.read_variations()
     assert len(variations) > 0
-    
+
     # Check the first variation
     variation = variations[0]
     assert isinstance(variation, Variation)
@@ -65,7 +66,7 @@ def test_read_categories(excel_reader):
     """Test reading the Categories worksheet."""
     categories = excel_reader.read_categories()
     assert len(categories) > 0
-    
+
     # Check the first category
     category = categories[0]
     assert isinstance(category, Category)
@@ -77,7 +78,7 @@ def test_read_attributes(excel_reader):
     """Test reading the Attributes worksheet."""
     attributes = excel_reader.read_attributes()
     assert len(attributes) > 0
-    
+
     # Check the first attribute
     attribute = attributes[0]
     assert isinstance(attribute, Attribute)
@@ -89,7 +90,7 @@ def test_read_images(excel_reader):
     """Test reading the Images worksheet."""
     images = excel_reader.read_images()
     assert len(images) > 0
-    
+
     # Check the first image
     image = images[0]
     assert isinstance(image, ProductImage)

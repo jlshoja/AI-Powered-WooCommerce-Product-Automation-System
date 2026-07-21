@@ -8,11 +8,13 @@ Tests:
 - Image attachment
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
-from src.image_manager.manager import ImageManager
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.excel_parser.models import Product, ProductImage
+from src.image_manager.manager import ImageManager
 
 
 @pytest.fixture
@@ -97,26 +99,30 @@ def test_process_product_images(image_manager):
         stock_quantity=10,
         stock_status="instock",
         categories=["Test Category"],
-        images=[ProductImage(
-            id="1",
-            product_sku="TEST001",
-            image_url="https://example.com/test-main.webp",
-            alt_text="Main Image",
-            title="Test Product",
-            is_main=True
-        )],
-        gallery_images=[ProductImage(
-            id="2",
-            product_sku="TEST001",
-            image_url="https://example.com/test-gallery.webp",
-            alt_text="Gallery Image",
-            title="Test Product Gallery",
-            is_main=False
-        )],
+        images=[
+            ProductImage(
+                id="1",
+                product_sku="TEST001",
+                image_url="https://example.com/test-main.webp",
+                alt_text="Main Image",
+                title="Test Product",
+                is_main=True,
+            )
+        ],
+        gallery_images=[
+            ProductImage(
+                id="2",
+                product_sku="TEST001",
+                image_url="https://example.com/test-gallery.webp",
+                alt_text="Gallery Image",
+                title="Test Product Gallery",
+                is_main=False,
+            )
+        ],
         attributes={},
-        variations=[]
+        variations=[],
     )
-    
+
     with patch.object(image_manager, "_process_image") as mock_process:
         mock_process.return_value = {"id": 123}
         image_manager.process_product_images(product)

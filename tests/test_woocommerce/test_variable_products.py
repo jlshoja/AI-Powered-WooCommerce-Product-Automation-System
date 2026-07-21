@@ -6,10 +6,12 @@ Tests:
 - Variation creation
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
+
+from src.excel_parser.models import Product, ProductImage, Variation
 from src.woocommerce.client import WooCommerceClient
-from src.excel_parser.models import Product, Variation, ProductImage
 
 
 @pytest.fixture
@@ -20,7 +22,7 @@ def client():
         consumer_key="ck_test",
         consumer_secret="cs_test",
         timeout=30,
-        max_retries=3
+        max_retries=3,
     )
 
 
@@ -35,12 +37,14 @@ def test_create_variable_product(client):
         stock_quantity=10,
         stock_status="instock",
         categories=["کیف مردانه"],
-        images=[ProductImage(
-            id="1",
-            product_sku="2106",
-            image_url="/uploads/2026/07/men-bag-2106-main.webp",
-            is_main=True
-        )],
+        images=[
+            ProductImage(
+                id="1",
+                product_sku="2106",
+                image_url="/uploads/2026/07/men-bag-2106-main.webp",
+                is_main=True,
+            )
+        ],
         attributes={"رنگ": ["سبز", "سرمه ای"]},
         variations=[
             Variation(
@@ -50,21 +54,23 @@ def test_create_variable_product(client):
                 regular_price=342000,
                 stock_quantity=10,
                 stock_status="instock",
-                images=[ProductImage(
-                    id="1",
-                    product_sku="2106-green",
-                    image_url="/uploads/2026/07/men-bag-2106-green.webp",
-                    is_main=True
-                )],
-                attributes={"رنگ": "سبز"}
+                images=[
+                    ProductImage(
+                        id="1",
+                        product_sku="2106-green",
+                        image_url="/uploads/2026/07/men-bag-2106-green.webp",
+                        is_main=True,
+                    )
+                ],
+                attributes={"رنگ": "سبز"},
             )
-        ]
+        ],
     )
-    
+
     with patch.object(client, "_retry_request") as mock_retry:
         mock_retry.side_effect = [
             {"id": 123, "sku": "2106"},  # Product creation
-            {"id": 456, "sku": "2106-green"}  # Variation creation
+            {"id": 456, "sku": "2106-green"},  # Variation creation
         ]
         response = client.create_product(product)
         assert response["id"] == 123
@@ -81,9 +87,9 @@ def test_create_variation_failure(client):
         stock_quantity=10,
         stock_status="instock",
         images=[],
-        attributes={"رنگ": "سبز"}
+        attributes={"رنگ": "سبز"},
     )
-    
+
     with patch.object(client, "_retry_request") as mock_retry:
         mock_retry.return_value = None  # Simulate failure
         response = client.create_variation(123, variation)
