@@ -55,6 +55,30 @@ class WooCommerceClient:
             self.logger.error(f"WooCommerce API connection error: {e}")
             return False
 
+    def delete_product(self, product_id: int, force: bool = True) -> bool:
+        """Delete a product from WooCommerce."""
+        try:
+            response = self._retry_request("delete", f"products/{product_id}", params={"force": force})
+            if response:
+                self.logger.info(f"Product deleted: {product_id}")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to delete product {product_id}: {e}")
+            return False
+
+    def delete_variation(self, product_id: int, variation_id: int, force: bool = True) -> bool:
+        """Delete a variation from WooCommerce."""
+        try:
+            response = self._retry_request("delete", f"products/{product_id}/variations/{variation_id}", params={"force": force})
+            if response:
+                self.logger.info(f"Variation deleted: {variation_id} from product {product_id}")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to delete variation {variation_id} from product {product_id}: {e}")
+            return False
+
     def _retry_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
         """Retry a WooCommerce API request on failure."""
         last_exception = None
@@ -74,15 +98,33 @@ class WooCommerceClient:
         self.logger.error(f"All {self.max_retries} attempts failed. Last error: {last_exception}")
         return None
 
-    def create_product(self, product: Product) -> Optional[Dict[str, Any]]:
-        """Create a product in WooCommerce."""
+    def create_product(self, product: Product, track_for_rollback: bool = False) -> Optional[Dict[str, Any]]:
+        """Create a product in WooCommerce.
+        
+        Args:
+            product: Product to create
+            track_for_rollback: If True, return dict with created IDs for potential rollback
+            
+        Returns:
+            Product response or dict with response and rollback info
+        """
         payload = self._map_product_to_payload(product)
         response = self._retry_request("post", "products", data=payload)
         if response:
             self.logger.info(f"Product created: {product.sku}")
             # Create variations if the product is variable
+            variation_ids = []
             if product.attributes and response.get("id"):
-                self._create_variations(response["id"], product)
+                variation_ids = self._create_variations(response["id"], product)
+            
+            if track_for_rollback:
+                return {
+                    "product": response,
+                    "rollback": {
+                        "product_id": response.get("id"),
+                        "variation_ids": variation_ids
+                    }
+                }
         return response
 
     def update_product(self, product_id: int, product: Product) -> Optional[Dict[str, Any]]:
@@ -122,8 +164,13 @@ class WooCommerceClient:
             self.logger.info(f"Product with SKU {product.sku} not found, creating new...")
             return self.create_product(product)
 
-    def _create_variations(self, product_id: int, product: Product) -> None:
-        """Create variations for a variable product."""
+    def _create_variations(self, product_id: int, product: Product) -> List[int]:
+        """Create variations for a variable product.
+        
+        Returns:
+            List of created variation IDs for potential rollback
+        """
+        variation_ids = []
         # Group variations by parent_sku (if applicable)
         variations_by_parent = {}
         for variation in product.variations:
@@ -134,7 +181,11 @@ class WooCommerceClient:
         
         # Create variations
         for variation in variations_by_parent.get(product.sku, []):
-            self.create_variation(product_id, variation)
+            response = self.create_variation(product_id, variation)
+            if response and response.get("id"):
+                variation_ids.append(response["id"])
+        
+        return variation_ids
 
     def create_variation(self, product_id: int, variation: Variation) -> Optional[Dict[str, Any]]:
         """Create a variation for a product in WooCommerce."""
@@ -143,6 +194,35 @@ class WooCommerceClient:
         if response:
             self.logger.info(f"Variation created: {variation.sku}")
         return response
+
+    def rollback_product_creation(self, product_id: int, variation_ids: List[int] = None) -> bool:
+        """Rollback product creation by deleting variations and product.
+        
+        Args:
+            product_id: ID of the product to delete
+            variation_ids: List of variation IDs to delete first
+            
+        Returns:
+            True if all deletions succeeded
+        """
+        success = True
+        
+        # Delete variations first
+        if variation_ids:
+            for var_id in variation_ids:
+                if not self.delete_variation(product_id, var_id):
+                    self.logger.error(f"Failed to rollback variation {var_id}")
+                    success = False
+        
+        # Delete the product
+        if not self.delete_product(product_id):
+            self.logger.error(f"Failed to rollback product {product_id}")
+            success = False
+        
+        if success:
+            self.logger.info(f"Rollback completed for product {product_id} and {len(variation_ids or [])} variations")
+        
+        return success
 
     def _map_product_to_payload(self, product: Product) -> Dict[str, Any]:
         """Map a Product model to a WooCommerce API payload."""
