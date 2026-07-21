@@ -52,7 +52,7 @@ def test_import_products_success(batch_importer):
         variations=[]
     )
     
-    with patch.object(batch_importer.woocommerce_client, "create_product") as mock_create:
+    with patch.object(batch_importer.woocommerce_client, "upsert_product") as mock_create:
         mock_create.return_value = {"id": 123}
         batch_importer.import_products([product])
         
@@ -76,7 +76,7 @@ def test_import_products_failure(batch_importer):
         variations=[]
     )
     
-    with patch.object(batch_importer.woocommerce_client, "create_product") as mock_create:
+    with patch.object(batch_importer.woocommerce_client, "upsert_product") as mock_create:
         mock_create.return_value = None
         batch_importer.import_products([product])
         
