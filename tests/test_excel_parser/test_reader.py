@@ -15,13 +15,15 @@ from src.excel_parser.reader import ExcelReader
 from src.excel_parser.models import Product, Variation, Category, Attribute, ProductImage
 
 
-# Path to the test Excel file
-TEST_EXCEL_PATH = Path("E:/Luxbaz/All Codes/Projects/AI-Powered WooCommerce Product Automation System/output/Product_Master.xlsx")
+# Path to the test Excel file (relative to project root)
+TEST_EXCEL_PATH = Path(__file__).parent.parent.parent / "output" / "Product_Master.xlsx"
 
 
 @pytest.fixture
 def excel_reader():
     """Fixture to initialize the ExcelReader."""
+    if not TEST_EXCEL_PATH.exists():
+        pytest.skip(f"Test file not found: {TEST_EXCEL_PATH}")
     return ExcelReader(TEST_EXCEL_PATH)
 
 
