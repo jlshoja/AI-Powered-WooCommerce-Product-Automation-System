@@ -3,8 +3,10 @@
 Entry point for the AI-Powered WooCommerce Product Automation System.
 """
 
+import os
 import yaml
 from pathlib import Path
+from dotenv import load_dotenv
 from src.excel_parser.reader import ExcelReader
 from src.validator.validator import Validator
 from src.woocommerce.client import WooCommerceClient
@@ -14,9 +16,31 @@ from src.automation.importer import BatchImporter
 from src.utils.logger import Logger
 
 def load_settings():
-    """Load settings from config/settings.yaml."""
-    with open(Path("../config/settings.yaml"), "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    """Load settings from config/settings.yaml and environment variables."""
+    # Load .env file
+    load_dotenv()
+    
+    config_path = Path(__file__).parent.parent / "config" / "settings.yaml"
+    with open(config_path, "r", encoding="utf-8") as f:
+        settings = yaml.safe_load(f)
+    
+    # Override with environment variables if present
+    if os.getenv("WOOCOMMERCE_API_URL"):
+        settings.setdefault("woocommerce", {})["api_url"] = os.getenv("WOOCOMMERCE_API_URL")
+    if os.getenv("WOOCOMMERCE_CONSUMER_KEY"):
+        settings.setdefault("woocommerce", {})["consumer_key"] = os.getenv("WOOCOMMERCE_CONSUMER_KEY")
+    if os.getenv("WOOCOMMERCE_CONSUMER_SECRET"):
+        settings.setdefault("woocommerce", {})["consumer_secret"] = os.getenv("WOOCOMMERCE_CONSUMER_SECRET")
+    if os.getenv("OPENAI_API_KEY"):
+        settings.setdefault("ai", {})["api_key"] = os.getenv("OPENAI_API_KEY")
+    if os.getenv("OPENAI_MODEL"):
+        settings.setdefault("ai", {})["model"] = os.getenv("OPENAI_MODEL")
+    if os.getenv("EXCEL_INPUT_PATH"):
+        settings.setdefault("excel", {})["input_path"] = os.getenv("EXCEL_INPUT_PATH")
+    if os.getenv("OUTPUT_DIR"):
+        settings.setdefault("excel", {})["output_dir"] = os.getenv("OUTPUT_DIR")
+    
+    return settings
 
 def main():
     """Main function to run the automation system."""
@@ -38,10 +62,11 @@ def main():
     image_manager = ImageManager(woocommerce_client)
 
     ai_manager = None
-    if settings.get("ai", {}).get("api_key"):
+    ai_settings = settings.get("ai", {})
+    if ai_settings.get("api_key"):
         ai_manager = AIManager(
-            api_key=settings["ai"]["api_key"],
-            model=settings["ai"]["model"]
+            api_key=ai_settings["api_key"],
+            model=ai_settings.get("model", "gpt-4o-mini")
         )
 
     validator = Validator(

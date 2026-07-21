@@ -53,8 +53,8 @@ class BatchImporter:
                 if self.ai_manager:
                     product = self.ai_manager.process_product(product)
                 
-                # Create the product in WooCommerce
-                response = self.woocommerce_client.create_product(product)
+                # Create or update the product in WooCommerce
+                response = self.woocommerce_client.upsert_product(product)
                 if not response:
                     self.tracker.track_failure(product, "Failed to create product in WooCommerce")
                     continue

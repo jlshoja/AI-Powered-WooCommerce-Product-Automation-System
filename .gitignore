@@ -61,6 +61,7 @@ htmlcov/
 config/settings.local.yaml
 config/.env
 .env
+.env.local
 
 # Jupyter
 .ipynb_checkpoints/

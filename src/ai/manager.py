@@ -17,9 +17,14 @@ from src.utils.logger import Logger
 class AIManager:
     """Orchestrates AI processing for products."""
 
-    def __init__(self, ai_client: AIClient):
+    def __init__(self, api_key: str = None, model: str = "gpt-4o-mini", ai_client: AIClient = None):
         """Initialize the AIManager."""
-        self.ai_client = ai_client
+        if ai_client is not None:
+            self.ai_client = ai_client
+        elif api_key is not None:
+            self.ai_client = AIClient(api_key=api_key, model=model)
+        else:
+            raise ValueError("Either ai_client or api_key must be provided")
         self.logger = Logger(__name__).get_logger()
 
     def process_product(self, product: Product) -> Product:

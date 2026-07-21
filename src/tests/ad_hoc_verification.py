@@ -43,8 +43,7 @@ def test_ai_client():
 def test_ai_manager():
     """Test AI Manager: Product processing."""
     print("Testing AI Manager...")
-    ai_client = MagicMock()
-    ai_manager = AIManager(ai_client)
+    ai_manager = AIManager(api_key="test_api_key", model="gpt-4o-mini")
     
     product = Product(
         id="1",
@@ -63,19 +62,19 @@ def test_ai_manager():
         variations=[]
     )
     
-    ai_client.generate_seo_title.return_value = "عنوان سئو بهینه"
-    ai_client.generate_seo_description.return_value = "توضیحات سئو بهینه"
-    ai_client.generate_product_description.return_value = "توضیحات کامل محصول"
-    ai_client.generate_tags.return_value = ["چرم", "کیف مردانه"]
-    ai_client.suggest_categories.return_value = ["کیف مردانه", "اکسسوری"]
-    
-    processed_product = ai_manager.process_product(product)
-    
-    assert processed_product.seo_title == "عنوان سئو بهینه", f"Expected 'عنوان سئو بهینه', got {processed_product.seo_title}"
-    assert processed_product.seo_description == "توضیحات سئو بهینه", f"Expected 'توضیحات سئو بهینه', got {processed_product.seo_description}"
-    assert processed_product.description == "توضیحات کامل محصول", f"Expected 'توضیحات کامل محصول', got {processed_product.description}"
-    assert processed_product.tags == ["چرم", "کیف مردانه"], f"Expected ['چرم', 'کیف مردانه'], got {processed_product.tags}"
-    assert processed_product.categories == ["کیف مردانه", "اکسسوری"], f"Expected ['کیف مردانه', 'اکسسوری'], got {processed_product.categories}"
+    with patch.object(ai_manager.ai_client, "generate_seo_title", return_value="عنوان سئو بهینه"), \
+         patch.object(ai_manager.ai_client, "generate_seo_description", return_value="توضیحات سئو بهینه"), \
+         patch.object(ai_manager.ai_client, "generate_product_description", return_value="توضیحات کامل محصول"), \
+         patch.object(ai_manager.ai_client, "generate_tags", return_value=["چرم", "کیف مردانه"]), \
+         patch.object(ai_manager.ai_client, "suggest_categories", return_value=["کیف مردانه", "اکسسوری"]):
+        
+        processed_product = ai_manager.process_product(product)
+        
+        assert processed_product.seo_title == "عنوان سئو بهینه", f"Expected 'عنوان سئو بهینه', got {processed_product.seo_title}"
+        assert processed_product.seo_description == "توضیحات سئو بهینه", f"Expected 'توضیحات سئو بهینه', got {processed_product.seo_description}"
+        assert processed_product.description == "توضیحات کامل محصول", f"Expected 'توضیحات کامل محصول', got {processed_product.description}"
+        assert processed_product.tags == ["چرم", "کیف مردانه"], f"Expected ['چرم', 'کیف مردانه'], got {processed_product.tags}"
+        assert processed_product.categories == ["کیف مردانه", "اکسسوری"], f"Expected ['کیف مردانه', 'اکسسوری'], got {processed_product.categories}"
     
     print("✅ AI Manager: PASSED")
 

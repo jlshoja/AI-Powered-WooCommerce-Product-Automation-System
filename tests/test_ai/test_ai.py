@@ -23,9 +23,9 @@ def ai_client():
 
 
 @pytest.fixture
-def ai_manager(ai_client):
+def ai_manager():
     """Fixture to initialize the AIManager."""
-    return AIManager(ai_client)
+    return AIManager(api_key="test_api_key", model="gpt-4o-mini")
 
 
 def test_generate_seo_title_success(ai_client):

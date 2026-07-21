@@ -100,6 +100,28 @@ class WooCommerceClient:
             self.logger.info(f"Product retrieved: {product_id}")
         return response
 
+    def get_product_by_sku(self, sku: str) -> Optional[Dict[str, Any]]:
+        """Get a product from WooCommerce by SKU."""
+        response = self._retry_request("get", "products", params={"sku": sku, "per_page": 1})
+        if response and isinstance(response, list) and len(response) > 0:
+            self.logger.info(f"Product found by SKU: {sku}")
+            return response[0]
+        elif response and isinstance(response, dict) and response.get("sku") == sku:
+            self.logger.info(f"Product found by SKU: {sku}")
+            return response
+        self.logger.info(f"No product found with SKU: {sku}")
+        return None
+
+    def upsert_product(self, product: Product) -> Optional[Dict[str, Any]]:
+        """Create or update a product in WooCommerce based on SKU."""
+        existing = self.get_product_by_sku(product.sku)
+        if existing:
+            self.logger.info(f"Product with SKU {product.sku} exists (ID: {existing['id']}), updating...")
+            return self.update_product(existing["id"], product)
+        else:
+            self.logger.info(f"Product with SKU {product.sku} not found, creating new...")
+            return self.create_product(product)
+
     def _create_variations(self, product_id: int, product: Product) -> None:
         """Create variations for a variable product."""
         # Group variations by parent_sku (if applicable)
