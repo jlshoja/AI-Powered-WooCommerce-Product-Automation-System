@@ -7,6 +7,8 @@ Uploads images to WordPress and attachs them to products/variations.
 from pathlib import Path
 from typing import Any
 
+import requests
+
 from src.utils.logger import Logger
 from src.woocommerce.client import WooCommerceClient
 
@@ -22,7 +24,7 @@ class ImageUploader:
     def upload_image(
         self, image_path: Path, alt_text: str = "", title: str = ""
     ) -> dict[str, Any] | None:
-        """Upload an image to WordPress."""
+        """Upload an image to WordPress using requests directly for multipart/form-data."""
         try:
             # Prepare the multipart form data
             filename = image_path.name
@@ -37,18 +39,37 @@ class ImageUploader:
                 if title:
                     data["title"] = title
 
-                # Use the woocommerce client's _retry_request with the "media" endpoint
-                # The woocommerce library handles the media endpoint correctly
-                response = self.woocommerce_client._retry_request(
-                    "post", "media", files=files, data=data
-                )
+                # Use requests directly for multipart/form-data (woocommerce library doesn't handle it well)
+                # WordPress media endpoint is /wp-json/wp/v2/media (not woocommerce)
+                base_url = self.woocommerce_client.api_url
+                if base_url.endswith('/wp-json/wc/v3'):
+                    base_url = base_url.replace('/wp-json/wc/v3', '')
+                url = f"{base_url}/wp-json/wp/v2/media"
+                auth = (self.woocommerce_client.consumer_key, self.woocommerce_client.consumer_secret)
 
-                if response:
-                    self.logger.info(f"Image uploaded: {filename}")
-                    return response
-                else:
-                    self.logger.error(f"Failed to upload image: {filename}")
-                    return None
+                # Retry logic
+                for attempt in range(self.woocommerce_client.max_retries):
+                    try:
+                        self.woocommerce_client.rate_limiter.acquire("media")
+                        response = requests.post(
+                            url, auth=auth, files=files, data=data, timeout=self.woocommerce_client.timeout
+                        )
+                        if response.status_code == 201:
+                            self.logger.info(f"Image uploaded: {filename}")
+                            return response.json()
+                        elif response.status_code == 429:
+                            self.logger.warning(f"Rate limited (429), attempt {attempt + 1}")
+                            import time
+                            time.sleep(2 ** attempt)
+                        else:
+                            self.logger.warning(
+                                f"Upload attempt {attempt + 1} failed: {response.status_code} - {response.text}"
+                            )
+                    except Exception as e:
+                        self.logger.warning(f"Upload attempt {attempt + 1} failed: {e}")
+
+                self.logger.error(f"Failed to upload image: {filename}")
+                return None
         except Exception as e:
             self.logger.error(f"Failed to upload image {image_path.name}: {e}")
             return None
