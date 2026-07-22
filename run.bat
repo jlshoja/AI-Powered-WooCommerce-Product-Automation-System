@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title WooCommerce Product Automation System
 cd /d "%~dp0"
 
@@ -23,7 +24,7 @@ if "%choice%"=="1" (
 ) else if "%choice%"=="2" (
     echo.
     set /p sku="Enter product SKU: "
-    python -m src.main --test-sku %sku%
+    python -m src.main --test-sku "!sku!"
 ) else if "%choice%"=="3" (
     echo.
     echo Running dry run...
@@ -39,7 +40,7 @@ if "%choice%"=="1" (
 ) else if "%choice%"=="6" (
     echo.
     set /p cred="Enter path to providers.xlsx: "
-    python -m src.main --credentials "%cred%"
+    python -m src.main --credentials "!cred!"
 ) else (
     echo Invalid option
 )
@@ -47,3 +48,4 @@ if "%choice%"=="1" (
 echo.
 echo Press any key to exit...
 pause >nul
+endlocal

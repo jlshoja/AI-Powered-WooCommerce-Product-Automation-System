@@ -17,8 +17,7 @@ cp .env.example .env
 # Edit .env with your credentials
 
 # Run
-cd src
-python main.py
+python -m src.main
 ```
 
 ## Project Structure
@@ -106,7 +105,7 @@ OPENAI_RATE_LIMIT_RPS=3.0
 OPENAI_RATE_BURST=5
 
 # Paths
-EXCEL_INPUT_PATH=/path/to/Product_Master.xlsx
+EXCEL_INPUT_PATH=/path/to/Product_Master.csv
 EXCEL_OUTPUT_DIR=../output
 
 # Optional
