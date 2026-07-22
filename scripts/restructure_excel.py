@@ -15,7 +15,7 @@ def extract_filename(url):
 
 
 def main():
-    input_csv = Path(__file__).parent.parent / "input" / "Product_Master_Input.csv"
+    input_csv = Path(__file__).parent.parent / "input" / "Product_Master.csv"
     output_xlsx = Path(__file__).parent.parent / "output" / "Product_Master.xlsx"
 
     # Read the updated CSV
@@ -107,7 +107,7 @@ def main():
     images_df = pd.DataFrame(images_list)
 
     # Write Excel
-    with pd.ExcelWriter("output/Product_Master.xlsx", engine="openpyxl") as writer:
+    with pd.ExcelWriter(OUTPUT_PATH, engine="openpyxl") as writer:
         products.to_excel(writer, sheet_name="Products", index=False)
         variations.to_excel(writer, sheet_name="Variations", index=False)
         categories_df.to_excel(writer, sheet_name="Categories", index=False)

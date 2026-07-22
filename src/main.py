@@ -35,7 +35,20 @@ def load_settings(credentials_path: Path | None = None):
 
     config_path = Path(__file__).parent.parent / "config" / "settings.yaml"
     with open(config_path, encoding="utf-8") as f:
-        settings = yaml.safe_load(f)
+        raw_content = f.read()
+
+    # Substitute ${VAR:-default} placeholders with environment variables
+    import re
+    def replace_placeholder(match):
+        var_expr = match.group(1)
+        if ":-" in var_expr:
+            var_name, default = var_expr.split(":-", 1)
+            return os.getenv(var_name, default)
+        else:
+            return os.getenv(var_expr, match.group(0))
+
+    substituted = re.sub(r'\$\{([^}]+)\}', replace_placeholder, raw_content)
+    settings = yaml.safe_load(substituted)
 
     # Load AI credentials from external Excel file (if exists)
     creds_manager = CredentialsManager(credentials_path)
@@ -57,13 +70,9 @@ def load_settings(credentials_path: Path | None = None):
     if os.getenv("WOOCOMMERCE_API_URL"):
         settings.setdefault("woocommerce", {})["api_url"] = os.getenv("WOOCOMMERCE_API_URL")
     if os.getenv("WOOCOMMERCE_CONSUMER_KEY"):
-        settings.setdefault("woocommerce", {})["consumer_key"] = os.getenv(
-            "WOOCOMMERCE_CONSUMER_KEY"
-        )
+        settings.setdefault("woocommerce", {})["consumer_key"] = os.getenv("WOOCOMMERCE_CONSUMER_KEY")
     if os.getenv("WOOCOMMERCE_CONSUMER_SECRET"):
-        settings.setdefault("woocommerce", {})["consumer_secret"] = os.getenv(
-            "WOOCOMMERCE_CONSUMER_SECRET"
-        )
+        settings.setdefault("woocommerce", {})["consumer_secret"] = os.getenv("WOOCOMMERCE_CONSUMER_SECRET")
     if os.getenv("OPENAI_API_KEY"):
         settings.setdefault("ai", {})["api_key"] = os.getenv("OPENAI_API_KEY")
     if os.getenv("OPENAI_MODEL"):
@@ -74,6 +83,14 @@ def load_settings(credentials_path: Path | None = None):
         settings.setdefault("excel", {})["input_path"] = os.getenv("EXCEL_INPUT_PATH")
     if os.getenv("OUTPUT_DIR"):
         settings.setdefault("excel", {})["output_dir"] = os.getenv("OUTPUT_DIR")
+
+    # Convert numeric settings
+    wc = settings.setdefault("woocommerce", {})
+    wc["rate_limit_rps"] = float(wc.get("rate_limit_rps", 1.0))
+    wc["rate_burst"] = int(wc.get("rate_burst", 2))
+    ai = settings.setdefault("ai", {})
+    ai["rate_limit_rps"] = float(ai.get("rate_limit_rps", 3.0))
+    ai["rate_burst"] = int(ai.get("rate_burst", 5))
 
     return settings
 
