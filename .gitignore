@@ -44,11 +44,22 @@ Thumbs.db
 # Logs
 logs/
 *.log
-output/logs/
 
-# Output files (generated)
-output/reports/
-output/image_cache/
+# Output files (generated - all)
+output/
+
+# Product images (large binary files)
+input/images/
+*.webp
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.svg
+!docs/**/*.svg
+
+# Excel files (except input source)
 *.xlsx
 !input/*.xlsx
 
@@ -69,3 +80,9 @@ config/.env
 # Temporary files
 *.tmp
 *.temp
+
+# Downloaded/cached images
+image_cache/
+downloads/
+temp/
+tmp/
