@@ -125,5 +125,5 @@ def test_process_product_images(image_manager):
 
     with patch.object(image_manager, "_process_image") as mock_process:
         mock_process.return_value = {"id": 123}
-        image_manager.process_product_images(product)
+        image_manager.process_product_images(product, wc_product_id=123)
         assert mock_process.call_count == 2  # Main + Gallery

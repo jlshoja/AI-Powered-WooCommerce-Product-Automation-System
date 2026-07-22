@@ -65,6 +65,8 @@ def main():
         consumer_secret=settings["woocommerce"]["consumer_secret"],
         timeout=settings["woocommerce"]["timeout"],
         max_retries=settings["woocommerce"]["max_retries"],
+        rate_limit=settings["woocommerce"].get("rate_limit_rps", 1.0),
+        rate_burst=settings["woocommerce"].get("rate_burst", 2),
     )
 
     image_manager = ImageManager(
@@ -76,7 +78,10 @@ def main():
     ai_settings = settings.get("ai", {})
     if ai_settings.get("api_key"):
         ai_manager = AIManager(
-            api_key=ai_settings["api_key"], model=ai_settings.get("model", "gpt-4o-mini")
+            api_key=ai_settings["api_key"],
+            model=ai_settings.get("model", "gpt-4o-mini"),
+            rate_limit_rps=ai_settings.get("rate_limit_rps", 3.0),
+            rate_limit_burst=ai_settings.get("rate_burst", 5),
         )
 
     validator = Validator(

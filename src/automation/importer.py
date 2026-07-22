@@ -58,8 +58,25 @@ class BatchImporter:
                     self.tracker.track_failure(product, "Failed to create product in WooCommerce")
                     continue
 
-                # Upload and attach images
-                self.image_manager.process_product_images(product)
+                wc_product_id = response.get("id")
+                if not wc_product_id:
+                    self.tracker.track_failure(product, "No product ID returned from WooCommerce")
+                    continue
+
+                # Get variation IDs if product is variable
+                wc_variation_ids = {}
+                if product.attributes and response.get("id"):
+                    # Fetch variations to get their IDs
+                    variations = self.woocommerce_client.get_product_variations(wc_product_id)
+                    if variations:
+                        for var in variations:
+                            if var.get("sku"):
+                                wc_variation_ids[var["sku"]] = var["id"]
+
+                # Upload and attach images using WC numeric IDs
+                self.image_manager.process_product_images(
+                    product, wc_product_id, wc_variation_ids
+                )
 
                 self.tracker.track_success(product)
                 self.logger.info(f"Successfully imported product: {product.sku}")

@@ -7,13 +7,16 @@ Handles:
 - Product creation/updates (including variable products)
 - Variation creation/updates
 - Retry logic
+- Rate limiting
 - Logging
 """
 
+import time
 from typing import Any
 
 from src.excel_parser.models import Product, Variation
 from src.utils.logger import Logger
+from src.utils.rate_limiter import RateLimiter
 from woocommerce import API
 
 
@@ -27,6 +30,8 @@ class WooCommerceClient:
         consumer_secret: str,
         timeout: int = 30,
         max_retries: int = 3,
+        rate_limit: float = 1.0,
+        rate_burst: int = 2,
     ):
         """Initialize the WooCommerce client."""
         self.api_url = api_url
@@ -36,6 +41,19 @@ class WooCommerceClient:
         self.max_retries = max_retries
         self.logger = Logger(__name__).get_logger()
         self.client = self._initialize_client()
+
+        # Rate limiting
+        endpoint_limits = {
+            "products": (rate_limit, rate_burst),
+            "products/{id}": (rate_limit, rate_burst),
+            "products/{id}/variations": (rate_limit, rate_burst),
+            "media": (rate_limit * 0.5, rate_burst),
+        }
+        self.rate_limiter = RateLimiter(
+            default_rate=rate_limit,
+            default_burst=rate_burst,
+            endpoint_limits=endpoint_limits,
+        )
 
     def _initialize_client(self) -> API:
         """Initialize the WooCommerce API client."""
@@ -95,13 +113,20 @@ class WooCommerceClient:
             return False
 
     def _retry_request(self, method: str, endpoint: str, **kwargs) -> dict[str, Any] | None:
-        """Retry a WooCommerce API request on failure."""
+        """Retry a WooCommerce API request on failure with rate limiting."""
+        # Acquire rate limit token
+        self.rate_limiter.acquire(endpoint)
+
         last_exception = None
         for attempt in range(self.max_retries):
             try:
                 response = getattr(self.client, method)(endpoint, **kwargs)
                 if response.status_code == 200:
                     return response.json()
+                elif response.status_code == 429:
+                    # Rate limited by server - wait and retry
+                    self.logger.warning(f"Rate limited by server (429), attempt {attempt + 1}")
+                    time.sleep(2 ** attempt)
                 else:
                     self.logger.warning(
                         f"Attempt {attempt + 1} failed: {response.status_code} - {response.text}"
@@ -166,6 +191,14 @@ class WooCommerceClient:
             self.logger.info(f"Product found by SKU: {sku}")
             return response
         self.logger.info(f"No product found with SKU: {sku}")
+        return None
+
+    def get_product_variations(self, product_id: int) -> list[dict[str, Any]] | None:
+        """Get all variations for a product."""
+        response = self._retry_request("get", f"products/{product_id}/variations", params={"per_page": 100})
+        if response and isinstance(response, list):
+            self.logger.info(f"Retrieved {len(response)} variations for product {product_id}")
+            return response
         return None
 
     def upsert_product(self, product: Product) -> dict[str, Any] | None:
