@@ -12,8 +12,9 @@ echo [2] Test single product (by SKU)
 echo [3] Dry run (validate only)
 echo [4] Restructure CSV to XLSX
 echo [5] Run tests
+echo [6] Full import with external credentials
 echo.
-set /p choice="Select option (1-5): "
+set /p choice="Select option (1-6): "
 
 if "%choice%"=="1" (
     echo.
@@ -35,6 +36,10 @@ if "%choice%"=="1" (
     echo.
     echo Running tests...
     python -m pytest tests/ -v
+) else if "%choice%"=="6" (
+    echo.
+    set /p cred="Enter path to providers.xlsx: "
+    python -m src.main --credentials "%cred%"
 ) else (
     echo Invalid option
 )

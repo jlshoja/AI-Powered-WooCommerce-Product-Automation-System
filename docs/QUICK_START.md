@@ -90,6 +90,8 @@ python -m src.main --dry-run
 - `local_gallery_images` column: pipe-separated filenames → looks in `input/images/{filename}`
 - Extra images in the folder are **ignored** — only those listed in CSV are processed
 
+**Important:** The `image_url` column contains URLs from **your own website** (e.g., `https://luxbaz.com/wp-content/uploads/...`). These are NOT supplier URLs. If images aren't found locally, the project downloads from your website to use as the source.
+
 ### Q4: What If Images Are Missing?
 **A:** Fallback chain:
 1. Local folder (`input/images/{filename}`) → copy to cache
@@ -180,6 +182,25 @@ ai:
 - Mimo (`https://api.mimo.com/v1`)
 - MiniMax (`https://api.minimax.chat/v1`)
 - Any OpenAI-compatible API
+
+**Alternative: External Credentials File (Recommended for Security)**
+
+Instead of hardcoding keys in settings.yaml, create `providers.xlsx` OUTSIDE the project root:
+
+| provider | api_key | model | base_url |
+|----------|---------|-------|----------|
+| openai | sk-xxx... | gpt-4o-mini | https://api.openai.com/v1 |
+| openrouter | sk-or-xxx... | gpt-4o-mini | https://openrouter.ai/api/v1 |
+| woocommerce | | | https://your-store.com/wp-json/wc/v3 |
+
+For WooCommerce, add columns: `consumer_key`, `consumer_secret`
+
+Then run:
+```bash
+python -m src.main --credentials C:\path\to\providers.xlsx
+```
+
+Or use `run.bat` option 6.
 
 ### Q14: What If API Key Is Invalid?
 **A:** The system logs the error and **continues without AI**. Products are still imported, just without AI-generated SEO content. You'll see in logs:

@@ -15,20 +15,54 @@ from src.ai.manager import AIManager
 from src.automation.importer import BatchImporter
 from src.excel_parser.reader import ExcelReader
 from src.image_manager.manager import ImageManager
+from src.utils.credentials import CredentialsManager
 from src.utils.logger import Logger
 from src.validator.validator import Validator
 from src.woocommerce.client import WooCommerceClient
 
 
-def load_settings():
-    """Load settings from config/settings.yaml and environment variables."""
+def load_settings(credentials_path: Path | None = None):
+    """Load settings from config/settings.yaml, environment variables, and credentials Excel.
+
+    Priority order (highest to lowest):
+    1. Environment variables
+    2. External credentials Excel file (providers.xlsx)
+    3. config/settings.yaml
+    """
     load_dotenv()
 
     config_path = Path(__file__).parent.parent / "config" / "settings.yaml"
     with open(config_path, encoding="utf-8") as f:
         settings = yaml.safe_load(f)
 
-    # Override with environment variables if present
+    # Load credentials from external Excel file (if exists)
+    creds_manager = CredentialsManager(credentials_path)
+    external_creds = creds_manager.load_credentials()
+
+    # Apply external credentials (lower priority than env vars)
+    if external_creds:
+        # WooCommerce credentials
+        wc_creds = external_creds.get("woocommerce")
+        if wc_creds:
+            if wc_creds.get("api_url"):
+                settings.setdefault("woocommerce", {})["api_url"] = wc_creds["api_url"]
+            if wc_creds.get("consumer_key"):
+                settings.setdefault("woocommerce", {})["consumer_key"] = wc_creds["consumer_key"]
+            if wc_creds.get("consumer_secret"):
+                settings.setdefault("woocommerce", {})["consumer_secret"] = wc_creds["consumer_secret"]
+
+        # AI credentials (try openai first, then fallback to others)
+        for provider in ["openai", "openrouter", "mimo", "minimax"]:
+            ai_creds = external_creds.get(f"ai_{provider}")
+            if ai_creds and ai_creds.get("api_key"):
+                settings.setdefault("ai", {})["api_key"] = ai_creds["api_key"]
+                if ai_creds.get("model"):
+                    settings["ai"]["model"] = ai_creds["model"]
+                if ai_creds.get("base_url"):
+                    settings["ai"]["base_url"] = ai_creds["base_url"]
+                break  # Use first valid provider found
+
+    # Override with environment variables (highest priority)
     if os.getenv("WOOCOMMERCE_API_URL"):
         settings.setdefault("woocommerce", {})["api_url"] = os.getenv("WOOCOMMERCE_API_URL")
     if os.getenv("WOOCOMMERCE_CONSUMER_KEY"):
@@ -123,6 +157,12 @@ def parse_args():
         default=10,
         help="Number of products per batch (default: 10)",
     )
+    parser.add_argument(
+        "--credentials",
+        type=str,
+        default=None,
+        help="Path to external credentials Excel file (providers.xlsx)",
+    )
     return parser.parse_args()
 
 
@@ -132,7 +172,10 @@ def main():
     logger.info("Starting WooCommerce Product Automation System...")
 
     args = parse_args()
-    settings = load_settings()
+
+    # Load settings with optional external credentials file
+    credentials_path = Path(args.credentials) if args.credentials else None
+    settings = load_settings(credentials_path)
 
     # Ensure Excel file exists (auto-convert CSV if needed)
     excel_path = ensure_excel_exists(settings, logger)
