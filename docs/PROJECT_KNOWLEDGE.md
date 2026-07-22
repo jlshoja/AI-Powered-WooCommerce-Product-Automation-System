@@ -569,18 +569,18 @@ pytest -x --strict-markers --strict-config
 
 ## 15. Known Issues and Technical Debt
 
-### Critical
-| Issue | Location | Impact |
+### Critical - FIXED ✅
+| Issue | Location | Status |
 |-------|----------|--------|
-| No rate limiting | WC Client, AI Client | 429 errors, potential bans |
-| No SSRF protection | ImageDownloader | Internal network access via image URLs |
-| No HTML sanitization | AI output → WC | XSS risk in descriptions |
+| No rate limiting | WC Client, AI Client | **FIXED** - Token bucket in `src/utils/rate_limiter.py` |
+| No SSRF protection | ImageDownloader | **FIXED** - Private IP blocking in `downloader.py` |
+| No HTML sanitization | AI output → WC | **FIXED** - Bleach sanitization in `AIClient` |
+| Image ID mismatch | `ImageManager` uses Excel IDs | **FIXED** - Uses WC numeric IDs from upload response |
 
 ### High
 | Issue | Location | Impact |
 |-------|----------|--------|
 | Blocking scheduler | `scheduler.py:28` | Not production-ready |
-| Image ID mismatch | `ImageManager` uses Excel IDs | WC expects numeric IDs |
 | No async/await | All I/O blocking | Scalability limited |
 | No JSON logging | `logger.py` | Hard to parse in production |
 
@@ -593,7 +593,6 @@ pytest -x --strict-markers --strict-config
 | Test file dependency | `TEST_EXCEL_PATH` | Fails if Excel missing |
 
 ### Code Smells
-- `ImageManager._process_image()` uses `product.id` (Excel ID) but WC expects numeric ID
 - `Scheduler` uses `time.sleep()` blocking
 - `ProductImage.local_filename` optional but critical for local images
 - `Variation.images` only uses first image (index 0)
@@ -602,11 +601,11 @@ pytest -x --strict-markers --strict-config
 
 ## 16. Improvement Recommendations
 
-### Critical (Do First)
-1. **Rate Limiting**: Token bucket for WC API + OpenAI
-2. **SSRF Protection**: Validate image URLs (block private IPs)
-3. **HTML Sanitization**: Bleach/NHtml on AI output before WC
-4. **Fix Image IDs**: Use WC numeric IDs for attachment
+### Critical (Do First) - ✅ COMPLETED
+1. ~~**Rate Limiting**: Token bucket for WC API + OpenAI~~ → **DONE** (commit 9f365a8)
+2. ~~**SSRF Protection**: Validate image URLs (block private IPs)~~ → **DONE** (commit 9f365a8)
+3. ~~**HTML Sanitization**: Bleach on AI output before WC~~ → **DONE** (commit 9f365a8)
+4. ~~**Fix Image IDs**: Use WC numeric IDs for attachment~~ → **DONE** (commit 9f365a8)
 
 ### High
 5. **Replace Scheduler**: APScheduler or Celery
@@ -638,6 +637,7 @@ Automates WooCommerce product imports from Excel with AI-powered SEO content gen
 - **Dependency injection** in `BatchImporter` enables testing
 - **Pydantic models** as contracts between layers
 - **Configuration** via `.env` + YAML with `${VAR}` placeholders
+- **Security**: Rate limiting, SSRF protection, HTML sanitization ✅
 
 ### Important Files
 | File | Purpose |
@@ -662,8 +662,7 @@ Automates WooCommerce product imports from Excel with AI-powered SEO content gen
 - **Scheduler is dev-only** - uses `time.sleep()`
 - **No horizontal scaling** - single-threaded, no queue
 - **Excel-only input** - no CSV/DB/API sources
-- **Image ID bug** - `ImageManager` uses Excel IDs but WC needs numeric IDs
-- **No rate limiting** - risk of 429 errors
+- **No structured logging** - plain text logs
 
 ### How Future AIs Should Understand the Project
 1. **Start with `README.md` + `docs/Architecture.md`**
@@ -678,30 +677,24 @@ Automates WooCommerce product imports from Excel with AI-powered SEO content gen
 
 ## Remaining Activities for Next Session
 
-### Immediate (Ready to Implement)
-1. **Rate Limiting** - Add token bucket to `WooCommerceClient._retry_request()` and `AIClient`
-2. **SSRF Protection** - Validate image URLs in `ImageDownloader.download_image()`
-3. **HTML Sanitization** - Add `bleach` to AI output in `AIClient` methods
-4. **Fix Image ID Bug** - Modify `ImageManager` to use WC numeric IDs from upload response
-
-### Short-term (Week 1-2)
-5. **Replace Scheduler** - Integrate APScheduler
-6. **Add `--dry-run` Flag** - Argument parsing in `main.py`
-6. **Structured Logging** - JSON format + rotation
-7. **Async Image Download** - `httpx.AsyncClient` in `ImageDownloader`
+### High Priority
+1. **Replace Scheduler** - Integrate APScheduler or Celery
+2. **Add `--dry-run` Flag** - Argument parsing in `main.py`
+3. **Structured JSON Logging** - `python-json-logger` + rotation
+4. **Async Image Download** - `httpx.AsyncClient` in `ImageDownloader`
 
 ### Medium-term (Month 1)
-8. **Integration Tests** - Docker WC instance + test script
-9. **Plugin Architecture** - Abstract `ExcelReader` for CSV/DB
-10. **Domain Events** - Decouple `BatchImporter` from concrete services
-11. **Dockerfile + CI/CD** - GitHub Actions workflow
+5. **Integration Tests** - Docker WC instance + test script
+6. **Plugin Architecture** - Abstract `ExcelReader` for CSV/DB
+7. **Domain Events** - Decouple `BatchImporter` from concrete services
+8. **Dockerfile + CI/CD** - GitHub Actions workflow
 
 ### Documentation Updates Needed
 - Update `DEVELOPMENT_GUIDE.md` with new patterns
-- Add rate limiting config to `config/settings.yaml`
+- Document rate limiting config in `config/settings.yaml`
 - Document SSRF protection in `SECURITY.md`
 
 ---
 
-*Generated: 2026-07-22 | Based on codebase at commit 4947bb9 (fix/critical-security-and-runtime-issues)*
+*Generated: 2026-07-22 | Based on codebase at commit 9f365a8 (fix/critical-security-and-runtime-issues)*
 *This document is the authoritative knowledge source. Update it when architecture changes.*

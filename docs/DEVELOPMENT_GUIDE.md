@@ -64,6 +64,8 @@ woocommerce:
   consumer_secret: "${WOOCOMMERCE_CONSUMER_SECRET}"
   timeout: ${WOOCOMMERCE_TIMEOUT:-30}
   max_retries: ${WOOCOMMERCE_MAX_RETRIES:-3}
+  rate_limit_rps: ${WOOCOMMERCE_RATE_LIMIT_RPS:-1.0}
+  rate_burst: ${WOOCOMMERCE_RATE_BURST:-2}
 
 excel:
   input_path: "${EXCEL_INPUT_PATH}"
@@ -77,11 +79,14 @@ validation:
 ai:
   api_key: "${OPENAI_API_KEY}"
   model: "${OPENAI_MODEL:-gpt-4o-mini}"
+  rate_limit_rps: ${OPENAI_RATE_LIMIT_RPS:-3.0}
+  rate_burst: ${OPENAI_RATE_BURST:-5}
 
 image:
   cache_dir: "${IMAGE_CACHE_DIR}"
   max_size_mb: ${IMAGE_MAX_SIZE_MB:-2}
   allowed_formats: ${IMAGE_ALLOWED_FORMATS:-"JPEG,PNG,WEBP"}
+  ssrf_protection: ${IMAGE_SSRF_PROTECTION:-true}
 ```
 
 ### Environment Variables (`.env`)
@@ -91,10 +96,14 @@ image:
 WOOCOMMERCE_API_URL=https://your-store.com/wp-json/wc/v3
 WOOCOMMERCE_CONSUMER_KEY=ck_xxx
 WOOCOMMERCE_CONSUMER_SECRET=cs_xxx
+WOOCOMMERCE_RATE_LIMIT_RPS=1.0
+WOOCOMMERCE_RATE_BURST=2
 
 # OpenAI
 OPENAI_API_KEY=sk-xxx
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_RATE_LIMIT_RPS=3.0
+OPENAI_RATE_BURST=5
 
 # Paths
 EXCEL_INPUT_PATH=/path/to/Product_Master.xlsx
@@ -104,6 +113,7 @@ EXCEL_OUTPUT_DIR=../output
 VALIDATION_MIN_PRICE=1000
 VALIDATION_MAX_PRICE=10000000
 IMAGE_CACHE_DIR=../output/image_cache
+IMAGE_SSRF_PROTECTION=true
 ```
 
 ## Running the System
@@ -163,6 +173,56 @@ mypy src/
 pre-commit install
 pre-commit run --all-files
 ```
+
+## Security Features (v0.2+)
+
+### Rate Limiting
+Token bucket algorithm implemented in `src/utils/rate_limiter.py`:
+
+```python
+from src.utils.rate_limiter import TokenBucket, RateLimiter
+
+# Per-endpoint limits
+rate_limiter = RateLimiter(
+    default_rate=1.0,      # 1 req/s
+    default_burst=2,       # burst of 2
+    endpoint_limits={
+        "products": (1.0, 2),
+        "media": (0.5, 1),  # slower for uploads
+    }
+)
+
+# In your code
+rate_limiter.acquire("products")  # blocks until token available
+```
+
+Configuration in `settings.yaml`:
+```yaml
+woocommerce:
+  rate_limit_rps: 1.0
+  rate_burst: 2
+ai:
+  rate_limit_rps: 3.0
+  rate_burst: 5
+```
+
+### SSRF Protection
+`ImageDownloader` blocks private IP ranges:
+- 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+- 127.0.0.0/8 (localhost)
+- 169.254.0.0/16 (link-local)
+- IPv6: ::1/128, fc00::/7, fe80::/10
+- Hostnames: localhost, 0.0.0.0
+
+Configurable via `image.ssrf_protection` in settings.yaml.
+
+### HTML Sanitization
+All AI-generated content sanitized with `bleach` in `AIClient`:
+- Allowed tags: p, br, strong, em, u, b, i, ul, ol, li, span, div
+- Allowed attributes: class, style on span/div
+- Strips: script, iframe, onload, onclick, etc.
+
+---
 
 ## Adding Features
 

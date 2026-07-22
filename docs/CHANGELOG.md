@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this format.
 
+## [0.2.0] - 2026-07-22
+
+### Fixed - Critical Security & Runtime Issues
+- **Rate Limiting**: Added token bucket rate limiter (`src/utils/rate_limiter.py`) for WooCommerce API (1 req/s) and OpenAI API (3 req/s) to prevent 429 errors
+- **SSRF Protection**: ImageDownloader now validates URLs and blocks private IP ranges (10.x, 172.16-31.x, 192.168.x, 127.x, localhost)
+- **HTML Sanitization**: Added `bleach` to sanitize all AI-generated content (SEO titles, descriptions, product descriptions, tags, categories) to prevent XSS
+- **Image ID Bug**: ImageManager now uses WooCommerce numeric IDs for image attachment instead of Excel IDs
+- **Retry Logic**: Added exponential backoff retry for image downloads (3 attempts)
+
+### Added
+- `src/utils/rate_limiter.py` - TokenBucket and RateLimiter classes
+- `docs/QUICK_START.md` - Step-by-step setup guide
+- Rate limit configuration in `config/settings.yaml` (woocommerce.rate_limit_rps, ai.rate_limit_rps)
+- `get_product_variations()` method in WooCommerceClient
+
+### Changed
+- `WooCommerceClient`: Added rate limiting to all API calls, handles 429 responses
+- `AIClient`: Added rate limiting and HTML sanitization to all generation methods
+- `ImageDownloader`: Added URL validation, private IP blocking, retry logic
+- `ImageManager`: Accepts WC numeric IDs for product and variations
+- `BatchImporter`: Fetches WC variation IDs before image processing
+- `main.py`: Passes rate limit config from settings.yaml
+
+### Security
+- All AI output now sanitized with bleach (allowed tags: p, br, strong, em, u, b, i, ul, ol, li, span, div)
+- Image URLs validated against private IP ranges before download
+
 ## [Unreleased]
 
 ### Fixed

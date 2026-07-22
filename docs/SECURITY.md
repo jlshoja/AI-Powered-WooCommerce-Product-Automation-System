@@ -4,6 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
+| 0.2.x   | ✅        |
 | 0.1.x   | ✅        |
 
 ## Reporting a Vulnerability
@@ -37,13 +38,29 @@ Response time: 48 hours
 ### API Security
 - **WooCommerce REST API**: Consumer Key/Secret auth (no OAuth tokens stored)
 - **Retry logic**: Exponential backoff, no credential logging
-- **Rate limiting**: Not yet implemented (see Roadmap)
+- **Rate limiting**: ✅ **Implemented v0.2** - Token bucket algorithm
+  - WooCommerce API: 1 req/s (configurable)
+  - OpenAI API: 3 req/s burst 5 (configurable)
+  - Handles 429 responses with exponential backoff
 
 ### Image Handling
 - **Download**: `requests` with timeout, stream to disk
 - **Validate**: PIL checks format/magic bytes, size limit
 - **Upload**: Multipart to WP media endpoint
-- **No SSRF protection**: URLs accepted as-is (see Roadmap)
+- **SSRF Protection**: ✅ **Implemented v0.2** - Blocks private IP ranges:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - ::1/128, fc00::/7, fe80::/10
+  - localhost, 0.0.0.0
+
+### Content Security
+- **HTML Sanitization**: ✅ **Implemented v0.2** - All AI-generated content sanitized with `bleach`
+  - Allowed tags: p, br, strong, em, u, b, i, ul, ol, li, span, div
+  - Allowed attributes: class, style on span/div
+  - Strips dangerous tags (script, iframe, onload, etc.)
 
 ### Logging
 - **No secrets in logs**: Credentials filtered
@@ -56,12 +73,10 @@ Response time: 48 hours
 
 | Issue | Severity | Target |
 |-------|----------|--------|
-| No rate limiting (WC API / OpenAI) | Medium | v0.2 |
-| No SSRF protection on image URLs | Medium | v0.2 |
-| No HTML sanitization (XSS in descriptions) | Medium | v0.2 |
 | No audit logging | Low | v0.3 |
 | No file rotation for logs | Low | v0.3 |
 | No dependency scanning | Low | v0.2 (Dependabot) |
+| No async/await (scalability) | Medium | v0.3 |
 
 ---
 
@@ -77,9 +92,9 @@ Response time: 48 hours
 |--------|------------|--------|------------|
 | Credential leak via repo | High (was critical) | Critical | `.env` gitignored, `.env.example` only |
 | Malicious Excel upload | Medium | High | Pydantic validation, type coercion |
-| SSRF via image URL | Medium | Medium | Not yet mitigated |
-| XSS via product description | Medium | Medium | Not yet sanitized |
-| API rate limit abuse | Low | Medium | Not yet limited |
+| SSRF via image URL | Medium | Medium | **Mitigated v0.2** - Private IP blocking |
+| XSS via product description | Medium | Medium | **Mitigated v0.2** - Bleach sanitization |
+| API rate limit abuse | Low | Medium | **Mitigated v0.2** - Token bucket rate limiting |
 | Dependency vulnerability | Low | Varies | Not yet scanned |
 
 ### Trust Boundaries
@@ -139,3 +154,31 @@ Response time: 48 hours
 3. Notify: Stakeholders, users if PII exposed
 4. Remediate: Patch vulnerability, rotate all secrets
 5. Review: Update threat model, add tests
+
+---
+
+## Configuration Reference
+
+### Rate Limiting (config/settings.yaml)
+```yaml
+woocommerce:
+  rate_limit_rps: 1.0    # Requests per second
+  rate_burst: 2          # Burst capacity
+
+ai:
+  rate_limit_rps: 3.0    # Requests per second
+  rate_burst: 5          # Burst capacity
+```
+
+### SSRF Protection
+```yaml
+image:
+  ssrf_protection: true  # Enable/disable
+```
+
+### HTML Sanitization
+Automatic on all AI-generated fields. Uses bleach with safe tag allowlist.
+
+---
+
+*Last updated: 2026-07-22 (v0.2.0 - Critical security fixes implemented)*
