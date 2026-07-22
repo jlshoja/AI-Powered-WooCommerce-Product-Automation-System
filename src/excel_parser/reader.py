@@ -53,6 +53,11 @@ class ExcelReader:
 
         for _, row in df_products.iterrows():
             # Parse images
+            # Try local_image first, then image_filename (first = main)
+            local_main = self._clean_string(row.get("local_image"))
+            if not local_main and pd.notna(row.get("image_filename")):
+                all_filenames = str(row.get("image_filename", "")).split("|")
+                local_main = all_filenames[0] if all_filenames else None
             main_image = ProductImage(
                 id=self._clean_string(row.get("ID", "")),
                 product_sku=self._clean_sku(row["sku"]),
@@ -60,7 +65,7 @@ class ExcelReader:
                 alt_text=self._clean_string(row.get("image_alt")),
                 title=self._clean_string(row["post_title"]),
                 is_main=True,
-                local_filename=self._clean_string(row.get("local_image")),
+                local_filename=local_main,
             )
 
             gallery_images = []
@@ -76,11 +81,13 @@ class ExcelReader:
                     if pd.notna(row.get("image_titles"))
                     else []
                 )
-                gallery_local = (
-                    row.get("local_gallery_images", "").split("|")
-                    if pd.notna(row.get("local_gallery_images"))
-                    else []
-                )
+                # Try local_gallery_images first, then image_filename (skip first = main)
+                gallery_local = []
+                if pd.notna(row.get("local_gallery_images")):
+                    gallery_local = row.get("local_gallery_images", "").split("|")
+                elif pd.notna(row.get("image_filename")):
+                    all_filenames = row.get("image_filename", "").split("|")
+                    gallery_local = all_filenames[1:] if len(all_filenames) > 1 else []
 
                 for i, url in enumerate(gallery_urls):
                     gallery_images.append(

@@ -290,15 +290,13 @@ class WooCommerceClient:
             "description": product.description or "",
             "short_description": product.short_description or "",
             "categories": [{"name": cat} for cat in product.categories],
-            "images": [
-                {"src": img.image_url, "alt": img.alt_text or "", "name": img.title or ""}
-                for img in product.images + product.gallery_images
-            ],
             "attributes": [
                 {"name": attr_name, "options": attr_values, "visible": True, "variation": True}
                 for attr_name, attr_values in product.attributes.items()
             ],
         }
+        # NOTE: Images are NOT included in product creation payload.
+        # They are uploaded separately via media API and attached by ID.
         return payload
 
     def _map_variation_to_payload(self, variation: Variation) -> dict[str, Any]:
@@ -310,13 +308,11 @@ class WooCommerceClient:
             "manage_stock": variation.manage_stock == "yes",
             "stock_quantity": variation.stock_quantity,
             "stock_status": variation.stock_status,
-            "image": [
-                {"src": img.image_url, "alt": img.alt_text or "", "name": img.title or ""}
-                for img in variation.images
-            ],
             "attributes": [
                 {"name": attr_name, "option": attr_value}
                 for attr_name, attr_value in variation.attributes.items()
             ],
         }
+        # NOTE: Images are NOT included in variation creation payload.
+        # They are uploaded separately via media API and attached by ID.
         return payload
