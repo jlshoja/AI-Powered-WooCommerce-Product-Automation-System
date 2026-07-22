@@ -122,20 +122,25 @@ class AIClient:
         self,
         api_key: str,
         model: str = "gpt-4o-mini",
+        base_url: str | None = None,
         rate_limit_rps: float = 3.0,
         rate_limit_burst: int = 5,
     ):
         """Initialize the AI client.
 
         Args:
-            api_key: OpenAI API key
+            api_key: API key for the AI provider
             model: Model name to use
+            base_url: Optional base URL for non-OpenAI providers (e.g., OpenRouter, Mimo)
             rate_limit_rps: Requests per second limit
             rate_limit_burst: Burst capacity
         """
         self.api_key = api_key
         self.model = model
-        self.client = OpenAI(api_key=api_key)
+        if base_url:
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
+        else:
+            self.client = OpenAI(api_key=api_key)
         self.logger = Logger(__name__).get_logger()
         self._rate_limiter = TokenBucket(rate_limit_rps, rate_limit_burst)
 
