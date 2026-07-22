@@ -47,11 +47,11 @@ OPENAI_BASE_URL=https://api.openai.com/v1  # Leave empty for OpenAI, or set for 
 ### 3. Prepare Input Data
 
 #### Option A: From CSV (Recommended)
-Place your CSV file at `input/Product_Master_Input.csv` and run:
+Place your CSV file at `input/Product_Master.csv` and run:
 ```bash
-python scripts/restructure_excel.py
+python -m src.main
 ```
-This automatically creates `output/Product_Master.xlsx` with 5 sheets.
+This automatically converts CSV to XLSX format with 5 sheets on first run.
 
 #### Option B: From Excel
 Place `Product_Master.xlsx` directly in `input/` folder.
