@@ -28,6 +28,19 @@ def main():
     # Add stock_status
     products["stock_status"] = "instock"
 
+    # Add local_image and local_gallery_images columns for the reader
+    # Parse from image_filename column
+    def get_main_local(val):
+        filenames = str(val).split("|") if pd.notna(val) else []
+        return filenames[0] if filenames else ""
+
+    def get_gallery_locals(val):
+        filenames = str(val).split("|") if pd.notna(val) else []
+        return "|".join(filenames[1:]) if len(filenames) > 1 else ""
+
+    products["local_image"] = products["image_filename"].apply(get_main_local)
+    products["local_gallery_images"] = products["image_filename"].apply(get_gallery_locals)
+
     # Keep original URLs in images/gallery_images columns
     # local_image and local_gallery_images columns already have filenames
 
@@ -62,6 +75,11 @@ def main():
 
     # Product main images
     for _, row in products.iterrows():
+        # Parse local filenames from image_filename column (first entry = main, rest = gallery)
+        local_filenames = str(row.get("image_filename", "")).split("|") if pd.notna(row.get("image_filename", "")) else []
+        main_local = local_filenames[0] if local_filenames else ""
+        gal_locals = local_filenames[1:] if len(local_filenames) > 1 else []
+
         if pd.notna(row["images"]) and row["images"] != "":
             images_list.append({
                 "ID": f"img_{row['ID']}_main",
@@ -70,7 +88,7 @@ def main():
                 "alt_text": row.get("image_alt", ""),
                 "title": row.get("image_titles", ""),
                 "is_main": True,
-                "local_filename": row.get("local_image", "")  # Preserve local_image
+                "local_filename": main_local
             })
 
         # Gallery images
@@ -78,7 +96,13 @@ def main():
             gal_urls = row["gallery_images"].split("|")
             gal_alts = str(row.get("gallery_image_alt", "")).split("|") if pd.notna(row.get("gallery_image_alt", "")) else []
             gal_titles = str(row.get("image_titles", "")).split("|") if pd.notna(row.get("image_titles", "")) else []
-            gal_locals = str(row.get("local_gallery_images", "")).split("|") if pd.notna(row.get("local_gallery_images", "")) else []
+
+            # Skip first gallery URL if it duplicates the main image
+            main_url = row.get("images", "")
+            if gal_urls and gal_urls[0] == main_url:
+                gal_urls = gal_urls[1:]
+                gal_alts = gal_alts[1:] if gal_alts else []
+                gal_titles = gal_titles[1:] if gal_titles else []
 
             for i, url in enumerate(gal_urls):
                 images_list.append({
@@ -88,7 +112,7 @@ def main():
                     "alt_text": gal_alts[i] if i < len(gal_alts) else "",
                     "title": gal_titles[i] if i < len(gal_titles) else "",
                     "is_main": False,
-                    "local_filename": gal_locals[i] if i < len(gal_locals) else ""  # Preserve local_gallery_images
+                    "local_filename": gal_locals[i] if i < len(gal_locals) else ""
                 })
 
     # Variation images
@@ -107,7 +131,7 @@ def main():
     images_df = pd.DataFrame(images_list)
 
     # Write Excel
-    with pd.ExcelWriter(OUTPUT_PATH, engine="openpyxl") as writer:
+    with pd.ExcelWriter(output_xlsx, engine="openpyxl") as writer:
         products.to_excel(writer, sheet_name="Products", index=False)
         variations.to_excel(writer, sheet_name="Variations", index=False)
         categories_df.to_excel(writer, sheet_name="Categories", index=False)

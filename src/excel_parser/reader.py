@@ -81,6 +81,13 @@ class ExcelReader:
                     if pd.notna(row.get("image_titles"))
                     else []
                 )
+                # Skip first gallery URL if it duplicates the main image URL
+                main_url = row.get("images", "")
+                if gallery_urls and gallery_urls[0] == main_url:
+                    gallery_urls = gallery_urls[1:]
+                    gallery_alts = gallery_alts[1:] if gallery_alts else []
+                    gallery_titles = gallery_titles[1:] if gallery_titles else []
+
                 # Try local_gallery_images first, then image_filename (skip first = main)
                 gallery_local = []
                 if pd.notna(row.get("local_gallery_images")):

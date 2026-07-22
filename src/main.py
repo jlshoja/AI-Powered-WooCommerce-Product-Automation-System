@@ -208,7 +208,7 @@ def main():
 
     image_manager = ImageManager(
         woocommerce_client,
-        local_images_dir=Path(settings["image"].get("local_folder", "../input/images")),
+        local_images_dir=(Path(__file__).parent.parent / settings["image"].get("local_folder", "../input/images")).resolve(),
     )
 
     ai_manager = None

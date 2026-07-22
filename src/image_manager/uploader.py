@@ -1,7 +1,7 @@
 """
 Image Uploader for the WooCommerce Product Automation System.
 
-Uploads images to WordPress and attaches them to products/variations.
+Uploads images to WordPress and attachs them to products/variations.
 """
 
 from pathlib import Path
@@ -24,18 +24,31 @@ class ImageUploader:
     ) -> dict[str, Any] | None:
         """Upload an image to WordPress."""
         try:
-            # Prepare the payload
-            payload = {"file": open(image_path, "rb"), "alt_text": alt_text, "title": title}
+            # Prepare the multipart form data
+            filename = image_path.name
+            with open(image_path, "rb") as f:
+                files = {
+                    "file": (filename, f, "image/webp")
+                }
+                # Add alt_text and title as form fields
+                data = {}
+                if alt_text:
+                    data["alt_text"] = alt_text
+                if title:
+                    data["title"] = title
 
-            # Upload the image
-            response = self.woocommerce_client._retry_request("post", "media", files=payload)
+                # Use the woocommerce client's _retry_request with the "media" endpoint
+                # The woocommerce library handles the media endpoint correctly
+                response = self.woocommerce_client._retry_request(
+                    "post", "media", files=files, data=data
+                )
 
-            if response:
-                self.logger.info(f"Image uploaded: {image_path.name}")
-                return response
-            else:
-                self.logger.error(f"Failed to upload image: {image_path.name}")
-                return None
+                if response:
+                    self.logger.info(f"Image uploaded: {filename}")
+                    return response
+                else:
+                    self.logger.error(f"Failed to upload image: {filename}")
+                    return None
         except Exception as e:
             self.logger.error(f"Failed to upload image {image_path.name}: {e}")
             return None
