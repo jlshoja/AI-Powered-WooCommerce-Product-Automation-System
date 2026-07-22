@@ -28,6 +28,8 @@ Response time: 48 hours
 - **Template provided**: `.env.example` with placeholders
 - **Settings loaded**: `config/settings.yaml` uses `${ENV_VAR}` placeholders
 - **Python-dotenv**: Loads `.env` at startup in `main.py`
+- **External Credentials**: API keys can be stored in external `providers.xlsx` (outside project root)
+- **WooCommerce credentials**: Always in settings.yaml only (not in Excel)
 
 ### Input Validation
 - **Pydantic models**: All data structures validated on parse
@@ -42,6 +44,13 @@ Response time: 48 hours
   - WooCommerce API: 1 req/s (configurable)
   - OpenAI API: 3 req/s burst 5 (configurable)
   - Handles 429 responses with exponential backoff
+- **AI Provider Fallback**: ✅ **Implemented v0.3** - Multiple providers with automatic fallback
+  - If primary provider fails → tries next provider
+  - All providers exhausted → AI disabled, import continues
+  - API key validated at startup (logs clearly if invalid)
+- **External Credentials**: ✅ **Implemented v0.3** - API keys from external Excel file
+  - Keeps secrets outside project root
+  - WooCommerce credentials stay in settings.yaml only
 
 ### Image Handling
 - **Download**: `requests` with timeout, stream to disk
@@ -90,11 +99,13 @@ Response time: 48 hours
 ### Attack Vectors
 | Vector | Likelihood | Impact | Mitigation |
 |--------|------------|--------|------------|
-| Credential leak via repo | High (was critical) | Critical | `.env` gitignored, `.env.example` only |
+| Credential leak via repo | High (was critical) | Critical | `.env` gitignored, `.env.example` only, `settings.yaml` gitignored |
 | Malicious Excel upload | Medium | High | Pydantic validation, type coercion |
 | SSRF via image URL | Medium | Medium | **Mitigated v0.2** - Private IP blocking |
 | XSS via product description | Medium | Medium | **Mitigated v0.2** - Bleach sanitization |
 | API rate limit abuse | Low | Medium | **Mitigated v0.2** - Token bucket rate limiting |
+| AI provider failure | Low | Low | **Mitigated v0.3** - Automatic fallback to other providers |
+| API key compromise | Medium | Medium | **Mitigated v0.3** - External credentials file, validation at startup |
 | Dependency vulnerability | Low | Varies | Not yet scanned |
 
 ### Trust Boundaries
@@ -159,6 +170,14 @@ Response time: 48 hours
 
 ## Configuration Reference
 
+### CLI Flags
+```bash
+python -m src.main --test-sku 2106          # Test single product
+python -m src.main --dry-run                # Validate only
+python -m src.main --batch-size 20          # Custom batch size
+python -m src.main --credentials providers.xlsx  # External API keys
+```
+
 ### Rate Limiting (config/settings.yaml)
 ```yaml
 woocommerce:
@@ -181,4 +200,4 @@ Automatic on all AI-generated fields. Uses bleach with safe tag allowlist.
 
 ---
 
-*Last updated: 2026-07-22 (v0.2.0 - Critical security fixes implemented)*
+*Last updated: 2026-07-22 (v0.3.0 - AI fallback, external credentials, CLI improvements)*

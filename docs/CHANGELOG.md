@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this format.
 
+## [0.3.0] - 2026-07-22
+
+### Added
+- **Single Product Test**: `--test-sku` flag to test import with one SKU before full batch
+- **Dry Run Mode**: `--dry-run` flag to validate products without uploading
+- **AI Provider Fallback**: Multiple AI providers with automatic fallback on failure
+- **External Credentials**: `--credentials` flag to read API keys from external Excel file (providers.xlsx)
+- **API Key Validation**: Validates API key at startup, logs clearly if invalid
+- **CSV Auto-Conversion**: CSV input auto-converts to XLSX on startup (no manual restructure)
+- **Windows Menu**: `run.bat` for easy execution (Full import, Test, Dry run, etc.)
+- `src/utils/credentials.py` - CredentialsManager for external API key management
+
+### Changed
+- **WooCommerce credentials**: Always from settings.yaml (not from Excel)
+- **AI credentials**: Can come from settings.yaml, .env, or external providers.xlsx
+- **AI Failure handling**: Logs each failure, tries next provider, disables AI if all fail
+- **Image URL documentation**: Clarified that image_url is from your own website, not supplier
+
+### Security
+- `config/settings.yaml` added to .gitignore (contains API keys)
+- External credentials Excel keeps secrets outside project root
+
 ## [0.2.0] - 2026-07-22
 
 ### Fixed - Critical Security & Runtime Issues

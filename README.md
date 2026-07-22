@@ -4,15 +4,20 @@
 Automate WooCommerce product imports from Excel with **AI-generated SEO content**, **validation**, and **batch processing**.
 
 ## Features
-- ✅ **Excel to WooCommerce**: Import products, variations, categories, and images.
-- ✅ **AI-Powered SEO**: Generate titles, descriptions, tags, and category suggestions.
-- ✅ **Validation**: Check for missing fields, duplicate SKUs, and invalid data.
-- ✅ **Image Management**: Download, validate, and upload images to WordPress.
-- ✅ **Batch Automation**: Schedule imports and track progress.
-- ✅ **Rate Limiting**: Token bucket algorithm for WC API and OpenAI API (prevents 429 errors).
-- ✅ **SSRF Protection**: Blocks private IPs in image URLs.
-- ✅ **HTML Sanitization**: Bleach sanitization on AI output to prevent XSS.
-- ✅ **Idempotent Imports**: Upsert by SKU - safe to re-run.
+- ✅ **Excel to WooCommerce**: Import products, variations, categories, and images
+- ✅ **CSV Auto-Conversion**: CSV input auto-converts to XLSX on startup
+- ✅ **AI-Powered SEO**: Generate titles, descriptions, tags, and category suggestions
+- ✅ **AI Provider Fallback**: Multiple AI providers with automatic fallback on failure
+- ✅ **External Credentials**: API keys from external Excel file (security)
+- ✅ **Single Product Test**: Test with `--test-sku` before full batch
+- ✅ **Dry Run Mode**: Validate without uploading (`--dry-run`)
+- ✅ **Validation**: Check for missing fields, duplicate SKUs, and invalid data
+- ✅ **Image Management**: Download from local folder or your website, validate, upload
+- ✅ **Batch Automation**: Schedule imports and track progress
+- ✅ **Rate Limiting**: Token bucket algorithm (prevents 429 errors)
+- ✅ **SSRF Protection**: Blocks private IPs in image URLs
+- ✅ **HTML Sanitization**: Bleach sanitization on AI output
+- ✅ **Idempotent Imports**: Upsert by SKU - safe to re-run
 
 ## Quick Start (0 to 100)
 
@@ -20,7 +25,7 @@ Automate WooCommerce product imports from Excel with **AI-generated SEO content*
 - Python 3.10+
 - WooCommerce REST API credentials (Consumer Key/Secret)
 - OpenAI API key (optional, for AI SEO content)
-- Excel file: `Product_Master.xlsx` with 5 sheets (Products, Variations, Categories, Attributes, Images)
+- Excel file or CSV with product data
 
 ### 2. Installation
 ```bash
@@ -41,46 +46,66 @@ cp .env.example .env
 # OPENAI_API_KEY=sk-xxx (optional)
 ```
 
+**Or use external credentials Excel** (recommended for security):
+See [QUICK_START.md](docs/QUICK_START.md#q13-ai-api-configuration) for format.
+
 ### 4. Prepare Input Data
-Place your Excel file at: `input/Product_Master.xlsx`
 
-Required sheets:
-- **Products** - Parent products with SKU, title, price, stock, categories, attributes
-- **Variations** - Child variations linked by `parent_sku`
-- **Categories** - Category names
-- **Attributes** - Attribute names and values
-- **Images** - Image URLs and optional `local_filename` for local images
+**Option A: From CSV (Recommended)**
+Place your CSV at `input/Product_Master_Input.csv`. The project auto-converts to XLSX on startup.
 
-Put local images in: `input/images/`
+**Option B: From Excel**
+Place `Product_Master.xlsx` in `input/` folder with 5 sheets.
 
 ### 5. Run Import
+
+**Windows (easiest):** Double-click `run.bat` and select an option.
+
+**Command line:**
 ```bash
-cd src
-python main.py
+# Full import
+python -m src.main
+
+# Test single product first
+python -m src.main --test-sku 2106
+
+# Dry run (validate only)
+python -m src.main --dry-run
+
+# With external credentials
+python -m src.main --credentials C:\path\to\providers.xlsx
 ```
 
 ### 6. Check Results
 - `output/reports/import_report.xlsx` - Success/failure per SKU
-- `output/reports/validation_errors.xlsx` - Validation failures (if any)
+- `output/reports/validation_errors.xlsx` - Validation failures
 - `output/logs/system.log` - Detailed logs
 
-## Key Documents (Read in Order)
+## Image Handling
+
+**How images are found:**
+1. Check `input/images/{local_filename}` (local folder)
+2. If not found → download from `image_url` (your own website)
+3. If both fail → product imported without image, logged in report
+
+**Important:** `image_url` contains URLs from YOUR website (e.g., `https://luxbaz.com/...`), not supplier URLs.
+
+## AI Provider Fallback
+
+If you have multiple AI providers in `providers.xlsx`, the project automatically falls back:
+1. Try primary provider (e.g., OpenAI)
+2. If fails → try next provider (e.g., OpenRouter)
+3. All fail → AI disabled, import continues without AI content
+
+## Key Documents
 
 | Priority | Document | Purpose |
 |----------|----------|---------|
 | **1** | [README.md](README.md) | This file - Quick start |
-| **2** | [docs/Excel_Data_Dictionary.md](docs/Excel_Data_Dictionary.md) | Excel format, required columns, examples |
-| **3** | [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) | Configuration details, environment variables |
-| **4** | [docs/SECURITY.md](docs/SECURITY.md) | Rate limiting, SSRF, HTML sanitization details |
-| **5** | [docs/PROJECT_KNOWLEDGE.md](docs/PROJECT_KNOWLEDGE.md) | Deep architecture, workflows, troubleshooting |
-| **6** | [docs/Architecture.md](docs/Architecture.md) | System architecture diagram |
-| **7** | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Production deployment, monitoring |
-| **8** | [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) | Running tests, CI/CD |
-
-## Outputs
-- **Reports**: `output/reports/validation_report.xlsx`, `output/reports/import_report.xlsx`
-- **Logs**: `output/logs/system.log`
-- **Image Cache**: `output/image_cache/`
+| **2** | [docs/QUICK_START.md](docs/QUICK_START.md) | Setup guide + FAQ |
+| **3** | [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) | Configuration, CLI flags |
+| **4** | [docs/SECURITY.md](docs/SECURITY.md) | Security measures |
+| **5** | [docs/PROJECT_KNOWLEDGE.md](docs/PROJECT_KNOWLEDGE.md) | Architecture, troubleshooting |
 
 ## Commands
 ```bash
@@ -100,8 +125,9 @@ python scripts/restructure_excel.py
 ## Troubleshooting
 | Issue | Solution |
 |-------|----------|
-| 429 Rate Limited | Increase `rate_limit_rps` in `config/settings.yaml` |
-| Images not uploading | Check `input/images/` has files matching `local_filename` |
+| 429 Rate Limited | Reduce `rate_limit_rps` in config/settings.yaml |
+| Images not uploading | Check `input/images/` or verify `image_url` is accessible |
 | Validation fails | Check `output/reports/validation_errors.xlsx` |
-| AI not working | Verify `OPENAI_API_KEY` in `.env` |
+| AI not working | Verify API key in .env or providers.xlsx |
+| API key invalid | Project logs warning and continues without AI |
 | Import hangs | Check `output/logs/system.log` for retries |

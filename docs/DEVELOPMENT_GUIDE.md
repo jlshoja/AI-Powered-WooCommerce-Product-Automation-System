@@ -120,20 +120,26 @@ IMAGE_SSRF_PROTECTION=true
 
 ### Full Import
 ```bash
-cd src
-python main.py
+python -m src.main
 ```
 
-### With Custom Config
+### Test Single Product
 ```bash
-cd src
-python main.py --config ../config/settings.yaml
+python -m src.main --test-sku 2106
 ```
 
-### Dry Run (Not Yet Implemented)
+### Dry Run (Validate Only)
 ```bash
-python main.py --dry-run
+python -m src.main --dry-run
 ```
+
+### With External Credentials
+```bash
+python -m src.main --credentials C:\path\to\providers.xlsx
+```
+
+### Windows Menu
+Double-click `run.bat` for a menu-based interface.
 
 ## Testing
 
