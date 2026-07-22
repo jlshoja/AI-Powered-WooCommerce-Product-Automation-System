@@ -34,14 +34,16 @@ class ImageDownloader:
 
     def __init__(
         self,
-        cache_dir: Path = Path("../output/image_cache"),
+        cache_dir: Path = None,
         local_images_dir: Path | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         timeout: int = 30,
     ):
         """Initialize the ImageDownloader."""
-        self.cache_dir = cache_dir
+        if cache_dir is None:
+            cache_dir = Path(__file__).parent.parent.parent / "output" / "image_cache"
+        self.cache_dir = cache_dir.resolve()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.local_images_dir = local_images_dir
         if self.local_images_dir:

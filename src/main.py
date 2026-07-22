@@ -85,6 +85,9 @@ def ensure_excel_exists(settings, logger):
     If input is already XLSX, does nothing.
     """
     input_path = Path(settings["excel"]["input_path"])
+    # Resolve relative paths against project root
+    if not input_path.is_absolute():
+        input_path = (Path(__file__).parent.parent / input_path).resolve()
 
     if input_path.suffix.lower() == ".xlsx":
         if input_path.exists():
@@ -99,8 +102,9 @@ def ensure_excel_exists(settings, logger):
             logger.error(f"CSV input file not found: {input_path}")
             return None
 
-        # Determine output path
+        # Determine output path (resolve relative to project root)
         output_dir = Path(settings["excel"].get("output_dir", "../output"))
+        output_dir = (Path(__file__).parent.parent / output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         output_xlsx = output_dir / "Product_Master.xlsx"
 

@@ -23,9 +23,10 @@ from pathlib import Path
 
 import pandas as pd
 
-# Constants
-INPUT_PATH = Path("../input/Product_Master_Input.csv")
-OUTPUT_PATH = Path("../output/Product_Master.xlsx")
+# Constants (resolved relative to project root)
+_PROJECT_ROOT = Path(__file__).parent.parent
+INPUT_PATH = _PROJECT_ROOT / "input" / "Product_Master_Input.csv"
+OUTPUT_PATH = _PROJECT_ROOT / "output" / "Product_Master.xlsx"
 
 # Data Validation Rules
 VALID_POST_STATUS = ["publish", "draft"]

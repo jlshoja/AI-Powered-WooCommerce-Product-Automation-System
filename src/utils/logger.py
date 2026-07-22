@@ -9,9 +9,11 @@ from pathlib import Path
 class Logger:
     """Logger utility for the application."""
 
-    def __init__(self, name: str, log_dir: Path = Path("../output/logs")):
+    def __init__(self, name: str, log_dir: Path = None):
         """Initialize the logger."""
-        self.log_dir = log_dir
+        if log_dir is None:
+            log_dir = Path(__file__).parent.parent.parent / "output" / "logs"
+        self.log_dir = log_dir.resolve()
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)

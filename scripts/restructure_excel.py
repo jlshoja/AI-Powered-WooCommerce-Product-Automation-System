@@ -15,8 +15,8 @@ def extract_filename(url):
 
 
 def main():
-    input_csv = Path("input/Product_Master_Input.csv")
-    output_xlsx = Path("output/Product_Master.xlsx")
+    input_csv = Path(__file__).parent.parent / "input" / "Product_Master_Input.csv"
+    output_xlsx = Path(__file__).parent.parent / "output" / "Product_Master.xlsx"
 
     # Read the updated CSV
     df = pd.read_csv(input_csv)

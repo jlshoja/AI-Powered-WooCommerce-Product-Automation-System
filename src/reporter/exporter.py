@@ -12,9 +12,11 @@ from src.validator.validator import ValidationReport
 class ValidationReporter:
     """Generates validation reports in Excel format."""
 
-    def __init__(self, output_dir: Path = Path("../output")):
+    def __init__(self, output_dir: Path = None):
         """Initialize the ValidationReporter."""
-        self.output_dir = output_dir
+        if output_dir is None:
+            output_dir = Path(__file__).parent.parent.parent / "output"
+        self.output_dir = output_dir.resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_report(
