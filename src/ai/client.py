@@ -137,12 +137,38 @@ class AIClient:
         """
         self.api_key = api_key
         self.model = model
+        self.base_url = base_url
         if base_url:
             self.client = OpenAI(api_key=api_key, base_url=base_url)
         else:
             self.client = OpenAI(api_key=api_key)
         self.logger = Logger(__name__).get_logger()
         self._rate_limiter = TokenBucket(rate_limit_rps, rate_limit_burst)
+        self._is_valid = None  # Cache validation result
+
+    def validate_api_key(self) -> bool:
+        """Validate the API key by making a minimal API call.
+
+        Returns:
+            True if API key is valid, False otherwise
+        """
+        if self._is_valid is not None:
+            return self._is_valid
+
+        try:
+            self.logger.info(f"Validating API key for model={self.model}...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "Say OK"}],
+                max_tokens=5,
+            )
+            self._is_valid = True
+            self.logger.info(f"API key validated successfully for {self.base_url or 'OpenAI'}")
+            return True
+        except Exception as e:
+            self._is_valid = False
+            self.logger.warning(f"API key validation failed: {e}")
+            return False
 
     def _rate_limited_call(self, func, *args, **kwargs):
         """Execute a function with rate limiting."""

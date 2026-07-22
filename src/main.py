@@ -22,12 +22,14 @@ from src.woocommerce.client import WooCommerceClient
 
 
 def load_settings(credentials_path: Path | None = None):
-    """Load settings from config/settings.yaml, environment variables, and credentials Excel.
+    """Load settings from config/settings.yaml and environment variables.
 
     Priority order (highest to lowest):
     1. Environment variables
-    2. External credentials Excel file (providers.xlsx)
+    2. External credentials Excel file (providers.xlsx) - AI only
     3. config/settings.yaml
+
+    Note: WooCommerce credentials are ALWAYS from settings.yaml only.
     """
     load_dotenv()
 
@@ -35,32 +37,21 @@ def load_settings(credentials_path: Path | None = None):
     with open(config_path, encoding="utf-8") as f:
         settings = yaml.safe_load(f)
 
-    # Load credentials from external Excel file (if exists)
+    # Load AI credentials from external Excel file (if exists)
     creds_manager = CredentialsManager(credentials_path)
-    external_creds = creds_manager.load_credentials()
+    primary_provider = creds_manager.get_primary_provider()
 
-    # Apply external credentials (lower priority than env vars)
-    if external_creds:
-        # WooCommerce credentials
-        wc_creds = external_creds.get("woocommerce")
-        if wc_creds:
-            if wc_creds.get("api_url"):
-                settings.setdefault("woocommerce", {})["api_url"] = wc_creds["api_url"]
-            if wc_creds.get("consumer_key"):
-                settings.setdefault("woocommerce", {})["consumer_key"] = wc_creds["consumer_key"]
-            if wc_creds.get("consumer_secret"):
-                settings.setdefault("woocommerce", {})["consumer_secret"] = wc_creds["consumer_secret"]
+    if primary_provider:
+        settings.setdefault("ai", {})["api_key"] = primary_provider["api_key"]
+        if primary_provider.get("model"):
+            settings["ai"]["model"] = primary_provider["model"]
+        if primary_provider.get("base_url"):
+            settings["ai"]["base_url"] = primary_provider["base_url"]
 
-        # AI credentials (try openai first, then fallback to others)
-        for provider in ["openai", "openrouter", "mimo", "minimax"]:
-            ai_creds = external_creds.get(f"ai_{provider}")
-            if ai_creds and ai_creds.get("api_key"):
-                settings.setdefault("ai", {})["api_key"] = ai_creds["api_key"]
-                if ai_creds.get("model"):
-                    settings["ai"]["model"] = ai_creds["model"]
-                if ai_creds.get("base_url"):
-                    settings["ai"]["base_url"] = ai_creds["base_url"]
-                break  # Use first valid provider found
+    # Store all providers for fallback
+    all_providers = creds_manager.get_all_providers()
+    if all_providers:
+        settings["ai"]["_providers"] = all_providers
 
     # Override with environment variables (highest priority)
     if os.getenv("WOOCOMMERCE_API_URL"):
@@ -201,16 +192,37 @@ def main():
 
     ai_manager = None
     ai_settings = settings.get("ai", {})
-    if ai_settings.get("api_key") and ai_settings["api_key"] != "your_api_key_here":
-        base_url = ai_settings.get("base_url") or None
+    providers_list = ai_settings.get("_providers")  # From credentials Excel
+
+    # Build providers list for AIManager
+    ai_providers = []
+    if providers_list:
+        # From external Excel file (multiple providers for fallback)
+        ai_providers = providers_list
+    elif ai_settings.get("api_key") and ai_settings["api_key"] != "your_api_key_here":
+        # From settings.yaml / env vars (single provider)
+        ai_providers = [{
+            "name": "primary",
+            "api_key": ai_settings["api_key"],
+            "model": ai_settings.get("model", "gpt-4o-mini"),
+            "base_url": ai_settings.get("base_url"),
+        }]
+
+    if ai_providers:
         ai_manager = AIManager(
-            api_key=ai_settings["api_key"],
-            model=ai_settings.get("model", "gpt-4o-mini"),
-            base_url=base_url,
+            providers=ai_providers,
             rate_limit_rps=ai_settings.get("rate_limit_rps", 3.0),
             rate_limit_burst=ai_settings.get("rate_burst", 5),
         )
-        logger.info(f"AI enabled: model={ai_settings.get('model')}, base_url={base_url or 'default'}")
+        # Validate API key before starting
+        if ai_manager.validate_current_provider():
+            logger.info(
+                f"AI enabled: provider={ai_manager.current_provider_name}, "
+                f"fallback_providers={len(ai_providers) - 1}"
+            )
+        else:
+            logger.warning("AI API key validation failed. AI will be disabled.")
+            ai_manager = None
     else:
         logger.info("AI disabled: no valid API key configured")
 
