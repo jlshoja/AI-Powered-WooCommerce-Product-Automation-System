@@ -175,6 +175,13 @@ def parse_args():
         default=None,
         help="Path to external credentials Excel file (providers.xlsx)",
     )
+    parser.add_argument(
+        "--upload-mode",
+        type=str,
+        choices=["restapi", "ftp"],
+        default=None,
+        help="Image upload mode: 'restapi' (default) or 'ftp' (bulk upload for large imports)",
+    )
     return parser.parse_args()
 
 
@@ -210,6 +217,18 @@ def main():
     # This enables reuse of global attributes (e.g. color swatches)
     woocommerce_client.load_attributes()
 
+    # Determine upload mode (CLI arg overrides .env)
+    upload_mode = args.upload_mode or settings.get("image", {}).get("upload_mode", "restapi")
+    logger.info(f"Upload mode: {upload_mode}")
+
+    # Build FTP config if needed
+    ftp_config = None
+    if upload_mode == "ftp":
+        ftp_config = settings.get("ftp", {})
+        if not ftp_config.get("host"):
+            logger.error("FTP mode selected but FTP_HOST not configured in .env")
+            sys.exit(1)
+
     image_manager = ImageManager(
         woocommerce_client,
         local_images_dir=(Path(__file__).parent.parent / settings["image"].get("local_folder", "../input/images")).resolve(),
@@ -217,6 +236,8 @@ def main():
         wp_app_password=settings.get("wordpress", {}).get("app_password", ""),
         attachment_mode=settings["image"].get("attachment_mode", "gallery"),
         media_cache_path=(Path(__file__).parent.parent / "output" / "media_cache.json").resolve(),
+        upload_mode=upload_mode,
+        ftp_config=ftp_config,
     )
 
     ai_manager = None

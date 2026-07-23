@@ -123,7 +123,7 @@ def test_process_product_images(image_manager):
         variations=[],
     )
 
-    with patch.object(image_manager, "_process_image") as mock_process:
+    with patch.object(image_manager, "_process_image_restapi") as mock_process:
         mock_process.return_value = {"id": 123}
         image_manager.process_product_images(product, wc_product_id=123)
         assert mock_process.call_count == 2  # Main + Gallery
