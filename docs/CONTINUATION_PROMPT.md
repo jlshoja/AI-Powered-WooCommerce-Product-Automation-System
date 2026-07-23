@@ -251,6 +251,13 @@ Imported products match manually-created products:
 - Partial `import_report.xlsx` written every 10 products
 - Idempotent variation creation (no duplicates on re-run)
 
+### 11. Configurable AI Prompts
+- Edit `config/ai_prompts.yaml` to customize AI-generated content
+- Variables: `{product_name}`, `{attributes}`, `{description}`
+- Configurable `max_tokens` per prompt
+- Leave prompt empty to skip AI generation for that field
+- No code changes needed — just edit the YAML file
+
 ## CLI Flags Reference
 
 | Flag | Description |
@@ -431,6 +438,7 @@ See `docs/Excel_Data_Dictionary.md` for full schema.
 | Attribute variation filter | `src/woocommerce/client.py` (`_map_product_to_payload` checks `variation_attr_names`) |
 | MIME detection | `src/image_manager/uploader.py` (`upload_image` file signatures) |
 | Crash recovery | `src/automation/tracker.py` (checkpoints), `src/automation/importer.py` (resume logic) |
+| AI prompts | `config/ai_prompts.yaml` (configurable prompts), `src/ai/client.py` (`_get_prompt`) |
 
 ---
 

@@ -5,7 +5,7 @@ Import products from CSV/Excel into WooCommerce with AI-generated SEO content, i
 ## What It Does
 
 1. Reads product data from CSV/Excel (products, variations, categories, attributes, images)
-2. Optionally generates SEO titles, descriptions, tags via OpenAI
+2. Optionally generates SEO titles, descriptions, tags via OpenAI (configurable prompts)
 3. Creates/updates products in WooCommerce via REST API
 4. Downloads and uploads images (via REST API or FTP bulk upload)
 5. Syncs variations, attributes, stock, and gallery
@@ -122,6 +122,23 @@ Double-click `run.bat`.
 **REST API (default):** Images uploaded via WordPress REST API. Checks for duplicates by filename.
 
 **FTP (for large imports):** Bulk upload via FTP, then auto-register as WordPress media. One-time setup: upload `scripts/ftp-register-media.php` to WordPress root.
+
+## AI Prompt Configuration
+
+Edit `config/ai_prompts.yaml` to customize AI-generated content without changing code:
+
+```yaml
+seo_title:
+  prompt: >
+    Generate an SEO-optimized title in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    Rules: Use formal tone. Include brand name. Under 60 characters.
+  max_tokens: 60
+```
+
+Available variables: `{product_name}`, `{attributes}`, `{description}`
+
+Prompts can be left empty to skip AI generation for that field.
 
 ## Crash Recovery
 

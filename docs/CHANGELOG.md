@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this format.
 - **Retry Failed Flag**: `--retry-failed` re-runs only failed products from last import
 - **Partial Reports**: `import_report.xlsx` written every 10 products (crash-safe)
 - **Idempotent Variations**: `_create_variations()` checks existing SKUs before creating (no duplicates)
+- **Configurable AI Prompts**: `config/ai_prompts.yaml` for customizing writing rules without code changes
 
 ### Fixed
 - **Color Swatches**: Attributes now link to global WC attributes (type=color) instead of creating local ones

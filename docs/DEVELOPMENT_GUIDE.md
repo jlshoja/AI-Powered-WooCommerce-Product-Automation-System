@@ -167,6 +167,25 @@ Double-click `run.bat` for a menu-based interface.
 | `--resume` | Skip fully completed products (use checkpoint) |
 | `--retry-failed` | Re-run only failed products from last import |
 
+## AI Prompt Configuration
+
+Edit `config/ai_prompts.yaml` to customize AI-generated content:
+
+```yaml
+seo_title:
+  prompt: >
+    Generate an SEO-optimized title in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    Rules: Use formal tone. Include brand name. Under 60 characters.
+  max_tokens: 60
+```
+
+Available variables: `{product_name}`, `{attributes}`, `{description}`
+
+Available prompts: `seo_title`, `seo_description`, `product_description`, `tags`, `categories`
+
+Leave a prompt empty to skip AI generation for that field.
+
 ## Testing
 
 ### Unit Tests

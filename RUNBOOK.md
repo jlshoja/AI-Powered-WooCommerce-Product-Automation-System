@@ -49,6 +49,27 @@ OPENAI_API_KEY=sk-xxx
 
 ---
 
+## Step 2b: Configure AI prompts (optional)
+
+Edit `config/ai_prompts.yaml` to customize writing rules:
+
+```yaml
+seo_title:
+  prompt: >
+    Generate an SEO-optimized title in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    Rules: Use formal tone. Include brand name. Under 60 characters.
+  max_tokens: 60
+```
+
+Available variables: `{product_name}`, `{attributes}`, `{description}`
+
+Available prompts: `seo_title`, `seo_description`, `product_description`, `tags`, `categories`
+
+Leave a prompt empty to skip AI generation for that field.
+
+---
+
 ## Step 3: Prepare input data
 
 Place your CSV at `input/Product_Master.csv`.
