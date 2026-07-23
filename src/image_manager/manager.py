@@ -21,12 +21,17 @@ from src.utils.logger import Logger
 class ImageManager:
     """Orchestrates the image workflow."""
 
-    def __init__(self, woocommerce_client, local_images_dir: Path | None = None, wp_user: str = "", wp_app_password: str = ""):
-        """Initialize the ImageManager."""
+    def __init__(self, woocommerce_client, local_images_dir: Path | None = None, wp_user: str = "", wp_app_password: str = "", attachment_mode: str = "gallery"):
+        """Initialize the ImageManager.
+
+        Args:
+            attachment_mode: "gallery" (featured + gallery, no variation images) or "variation" (variation-specific images)
+        """
         self.downloader = ImageDownloader(local_images_dir=local_images_dir)
         self.validator = ImageValidator()
         self.uploader = ImageUploader(woocommerce_client, wp_user=wp_user, wp_app_password=wp_app_password)
         self.logger = Logger(__name__).get_logger()
+        self.attachment_mode = attachment_mode  # "gallery" or "variation"
 
     def process_product_images(
         self,
@@ -49,8 +54,8 @@ class ImageManager:
         for img in product.gallery_images:
             self._process_image(img, wc_product_id, is_main=False)
 
-        # Process variation images
-        if wc_variation_ids:
+        # Process variation images only in "variation" mode
+        if self.attachment_mode == "variation" and wc_variation_ids:
             for variation in product.variations:
                 if variation.images and variation.sku in wc_variation_ids:
                     self._process_image(

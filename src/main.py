@@ -211,6 +211,7 @@ def main():
         local_images_dir=(Path(__file__).parent.parent / settings["image"].get("local_folder", "../input/images")).resolve(),
         wp_user=settings.get("wordpress", {}).get("user", ""),
         wp_app_password=settings.get("wordpress", {}).get("app_password", ""),
+        attachment_mode=settings["image"].get("attachment_mode", "gallery"),
     )
 
     ai_manager = None

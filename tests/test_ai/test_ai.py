@@ -15,7 +15,7 @@ import pytest
 
 from src.ai.client import AIClient
 from src.ai.manager import AIManager
-from src.excel_parser.models import Product
+from src.excel_parser.models import Product, ProductAttribute
 
 
 @pytest.fixture
@@ -93,7 +93,9 @@ def test_process_product(ai_manager):
         seo_title=None,
         seo_description=None,
         images=[],
-        attributes={"رنگ": ["سبز"]},
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سبز"]),
+        },
         variations=[],
     )
 
