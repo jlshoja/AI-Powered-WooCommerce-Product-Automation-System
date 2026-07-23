@@ -41,12 +41,15 @@ class WooCommerceClient:
         self.max_retries = max_retries
         self.logger = Logger(__name__).get_logger()
         self.client = self._initialize_client()
+        self._category_cache: dict[str, int] = {}
 
         # Rate limiting
         endpoint_limits = {
             "products": (rate_limit, rate_burst),
             "products/{id}": (rate_limit, rate_burst),
             "products/{id}/variations": (rate_limit, rate_burst),
+            "categories": (rate_limit, rate_burst),
+            "tags": (rate_limit, rate_burst),
             "media": (rate_limit * 0.5, rate_burst),
         }
         self.rate_limiter = RateLimiter(
@@ -121,7 +124,7 @@ class WooCommerceClient:
         for attempt in range(self.max_retries):
             try:
                 response = getattr(self.client, method)(endpoint, **kwargs)
-                if response.status_code == 200:
+                if response.status_code in (200, 201):
                     return response.json()
                 elif response.status_code == 429:
                     # Rate limited by server - wait and retry
@@ -167,11 +170,13 @@ class WooCommerceClient:
         return response
 
     def update_product(self, product_id: int, product: Product) -> dict[str, Any] | None:
-        """Update a product in WooCommerce."""
+        """Update a product in WooCommerce and sync its variations."""
         payload = self._map_product_to_payload(product)
         response = self._retry_request("put", f"products/{product_id}", data=payload)
         if response:
             self.logger.info(f"Product updated: {product.sku}")
+            if product.attributes:
+                self._sync_variations(product_id, product)
         return response
 
     def get_product(self, product_id: int) -> dict[str, Any] | None:
@@ -275,28 +280,117 @@ class WooCommerceClient:
 
         return success
 
+    def _sync_variations(self, product_id: int, product: Product) -> list[int]:
+        """Sync variations: create missing ones, return all variation IDs."""
+        existing = self.get_product_variations(product_id) or []
+        existing_skus = {v["sku"]: v["id"] for v in existing if v.get("sku")}
+
+        created_ids = []
+        for variation in product.variations:
+            if variation.parent_sku != product.sku:
+                continue
+            if variation.sku in existing_skus:
+                self.logger.info(f"Variation {variation.sku} already exists (ID: {existing_skus[variation.sku]}), updating...")
+                self._retry_request(
+                    "put",
+                    f"products/{product_id}/variations/{existing_skus[variation.sku]}",
+                    data=self._map_variation_to_payload(variation),
+                )
+                created_ids.append(existing_skus[variation.sku])
+            else:
+                resp = self.create_variation(product_id, variation)
+                if resp and resp.get("id"):
+                    created_ids.append(resp["id"])
+
+        for sku, var_id in existing_skus.items():
+            if var_id not in created_ids:
+                self.logger.info(f"Deleting stale variation: {sku} (ID: {var_id})")
+                self.delete_variation(product_id, var_id)
+
+        return created_ids
+
+    def resolve_category_ids(self, category_names: list[str]) -> list[dict[str, Any]]:
+        """Resolve category names to WC category IDs, creating if needed."""
+        resolved = []
+        for name in category_names:
+            cat_id = self._category_cache.get(name)
+            if cat_id is None:
+                cat_id = self._find_or_create_category(name)
+                if cat_id:
+                    self._category_cache[name] = cat_id
+            if cat_id:
+                resolved.append({"id": cat_id})
+            else:
+                resolved.append({"name": name})
+        return resolved
+
+    def _find_or_create_category(self, name: str) -> int | None:
+        """Find a category by name or create it."""
+        resp = self._retry_request("get", "products/categories", params={"search": name, "per_page": 10})
+        if resp and isinstance(resp, list):
+            for cat in resp:
+                if cat.get("name") == name:
+                    return cat["id"]
+
+        resp = self._retry_request("post", "products/categories", data={"name": name})
+        if resp and resp.get("id"):
+            self.logger.info(f"Created category: {name} (ID: {resp['id']})")
+            return resp["id"]
+        return None
+
+    def resolve_tag_ids(self, tag_names: list[str]) -> list[dict[str, Any]]:
+        """Resolve tag names to WC tag IDs, creating if needed."""
+        resolved = []
+        for name in tag_names:
+            resp = self._retry_request("get", "products/tags", params={"search": name, "per_page": 10})
+            tag_id = None
+            if resp and isinstance(resp, list):
+                for tag in resp:
+                    if tag.get("name") == name:
+                        tag_id = tag["id"]
+                        break
+            if tag_id is None:
+                resp = self._retry_request("post", "products/tags", data={"name": name})
+                if resp and resp.get("id"):
+                    tag_id = resp["id"]
+                    self.logger.info(f"Created tag: {name} (ID: {tag_id})")
+            if tag_id:
+                resolved.append({"id": tag_id})
+        return resolved
+
     def _map_product_to_payload(self, product: Product) -> dict[str, Any]:
         """Map a Product model to a WooCommerce API payload."""
+        categories = self.resolve_category_ids(product.categories) if product.categories else []
+        is_variable = bool(product.attributes)
+
         payload = {
             "name": product.post_title,
-            "type": "variable" if product.attributes else "simple",
+            "type": "variable" if is_variable else "simple",
             "status": product.post_status,
             "sku": product.sku,
-            "regular_price": str(product.regular_price),
-            "sale_price": str(product.sale_price) if product.sale_price else "",
-            "manage_stock": product.manage_stock == "yes",
-            "stock_quantity": product.stock_quantity,
-            "stock_status": product.stock_status,
             "description": product.description or "",
             "short_description": product.short_description or "",
-            "categories": [{"name": cat} for cat in product.categories],
+            "categories": categories,
             "attributes": [
                 {"name": attr_name, "options": attr_values, "visible": True, "variation": True}
                 for attr_name, attr_values in product.attributes.items()
             ],
         }
-        # NOTE: Images are NOT included in product creation payload.
-        # They are uploaded separately via media API and attached by ID.
+
+        if is_variable:
+            payload["manage_stock"] = False
+        else:
+            payload["regular_price"] = str(product.regular_price)
+            payload["sale_price"] = str(product.sale_price) if product.sale_price else ""
+            payload["manage_stock"] = product.manage_stock == "yes"
+            payload["stock_quantity"] = product.stock_quantity if product.stock_quantity else 0
+            payload["stock_status"] = product.stock_status or "instock"
+
+        if product.tags:
+            payload["tags"] = self.resolve_tag_ids(product.tags)
+        elif product.sale_tag:
+            payload["tags"] = self.resolve_tag_ids([product.sale_tag])
+
         return payload
 
     def _map_variation_to_payload(self, variation: Variation) -> dict[str, Any]:
