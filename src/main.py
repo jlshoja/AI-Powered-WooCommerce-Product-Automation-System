@@ -187,6 +187,11 @@ def parse_args():
         action="store_true",
         help="Re-run only products that failed in the last import (reads import_report.xlsx)",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from last checkpoint — skip fully completed products",
+    )
     return parser.parse_args()
 
 
@@ -291,6 +296,7 @@ def main():
         image_manager=image_manager,
         ai_manager=ai_manager,
         validator=validator,
+        checkpoint_path=(Path(__file__).parent.parent / "output" / "import_checkpoint.json").resolve(),
     )
 
     # Read products from Excel
@@ -336,7 +342,7 @@ def main():
             logger.info("All products passed validation")
         logger.info(f"DRY RUN complete: {len(products)} products validated")
     else:
-        batch_importer.import_products(products, batch_size=args.batch_size)
+        batch_importer.import_products(products, batch_size=args.batch_size, resume=args.resume)
 
     logger.info("Import process completed.")
 
