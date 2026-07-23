@@ -181,15 +181,33 @@ class ImageUploader:
     def attach_image_to_product(
         self, product_id: int, image_id: int, is_main: bool = False
     ) -> bool:
-        """Attach an image to a product."""
+        """Attach an image to a product (adds to gallery or sets as featured)."""
         try:
-            payload = {"images": [{"id": image_id, "position": 0 if is_main else 1}]}
+            # Fetch current product to get existing images
+            current = self.woocommerce_client._retry_request("get", f"products/{product_id}")
+            if not current:
+                self.logger.error(f"Failed to fetch product {product_id}")
+                return False
+
+            existing_images = current.get("images", [])
+            # Remove any existing entry with same image_id to avoid duplicates
+            existing_images = [img for img in existing_images if img.get("id") != image_id]
+
+            # Add new image
+            position = 0 if is_main else len(existing_images)
+            existing_images.append({"id": image_id, "position": position})
+
+            # Re-index positions: main image at 0, gallery at 1, 2, ...
+            for i, img in enumerate(existing_images):
+                img["position"] = i
+
+            payload = {"images": existing_images}
             response = self.woocommerce_client._retry_request(
                 "put", f"products/{product_id}", data=payload
             )
 
             if response:
-                self.logger.info(f"Image {image_id} attached to product {product_id}")
+                self.logger.info(f"Image {image_id} attached to product {product_id} (gallery size: {len(existing_images)})")
                 return True
             else:
                 self.logger.error(f"Failed to attach image {image_id} to product {product_id}")

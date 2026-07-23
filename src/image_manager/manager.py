@@ -69,7 +69,9 @@ class ImageManager:
             self._process_image(img, wc_product_id, is_main=False)
 
         # Process variation images only in "variation" mode
+        self.logger.info(f"Image attachment mode: {self.attachment_mode}")
         if self.attachment_mode == "variation" and wc_variation_ids:
+            self.logger.info("Processing variation images")
             for variation in product.variations:
                 if variation.images and variation.sku in wc_variation_ids:
                     self._process_image(
