@@ -465,7 +465,7 @@ class WooCommerceClient:
             attr_payload = {
                 "name": attr_name,
                 "options": attr_values,
-                "visible": True,
+                "visible": False,
                 "variation": attr_key in variation_attr_names,
             }
 
@@ -489,11 +489,11 @@ class WooCommerceClient:
         }
 
         if is_variable:
-            payload["manage_stock"] = False
+            payload["manage_stock"] = True
         else:
             payload["regular_price"] = str(product.regular_price)
             payload["sale_price"] = str(product.sale_price) if product.sale_price else ""
-            payload["manage_stock"] = product.manage_stock == "yes"
+            payload["manage_stock"] = True
             payload["stock_quantity"] = product.stock_quantity if product.stock_quantity else 0
             payload["stock_status"] = product.stock_status or "instock"
 
