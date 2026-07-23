@@ -7,6 +7,8 @@ Tests:
 - Progress tracking
 """
 
+import tempfile
+
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -24,7 +26,8 @@ def batch_importer():
     """Fixture to initialize the BatchImporter."""
     woocommerce_client = MagicMock()
     image_manager = MagicMock()
-    return BatchImporter(woocommerce_client, image_manager, checkpoint_path=Path("/dev/null"))
+    tmp = Path(tempfile.mkdtemp()) / "checkpoint.json"
+    return BatchImporter(woocommerce_client, image_manager, checkpoint_path=tmp)
 
 
 @pytest.fixture

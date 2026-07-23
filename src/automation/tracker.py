@@ -108,6 +108,7 @@ class ProgressTracker:
         )
         self.set_stage(product.sku, "completed")
         self.logger.info(f"Tracked success: {product.sku}")
+        self._maybe_write_report()
 
     def track_failure(self, product: Product, error: str, stage: str | None = None) -> None:
         """Track a failed product import."""
@@ -117,6 +118,14 @@ class ProgressTracker:
         if stage:
             self.set_stage(product.sku, stage, error=error)
         self.logger.error(f"Tracked failure: {product.sku} - {error}")
+        self._maybe_write_report()
+
+    def _maybe_write_report(self) -> None:
+        """Write partial report every 10 products (so crash doesn't lose all data)."""
+        total = len(self.imported_products) + len(self.failed_products)
+        if total > 0 and total % 10 == 0:
+            self.generate_report()
+            self.logger.info(f"Partial report written ({total} products processed)")
 
     def generate_report(self, file_path: str = "import_report.xlsx") -> None:
         """Generate an import report."""
