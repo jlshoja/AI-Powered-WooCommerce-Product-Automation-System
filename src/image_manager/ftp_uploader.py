@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import requests
+
 from src.utils.logger import Logger
 
 
@@ -25,6 +27,8 @@ class FTPUploader:
         uploads_path: str = "/public_html/wp-content/uploads",
         passive_mode: bool = True,
         media_cache_path: Path | None = None,
+        wp_api_url: str = "",
+        registration_key: str = "",
     ):
         """Initialize FTPUploader.
 
@@ -36,6 +40,8 @@ class FTPUploader:
             uploads_path: Remote path to WordPress uploads directory
             passive_mode: Use passive FTP mode
             media_cache_path: Path to JSON file for caching media IDs
+            wp_api_url: WordPress site URL (for HTTP-based media registration)
+            registration_key: API key for ftp-register-media.php (optional)
         """
         self.host = host
         self.port = port
@@ -46,6 +52,8 @@ class FTPUploader:
         self.logger = Logger(__name__).get_logger()
         self._media_cache: dict[str, int] = {}
         self._cache_path = media_cache_path
+        self.wp_api_url = wp_api_url.rstrip("/")
+        self.registration_key = registration_key
 
         if self._cache_path and self._cache_path.exists():
             self._load_cache()
@@ -143,7 +151,7 @@ class FTPUploader:
         return uploaded
 
     def register_media(self, uploaded_files: dict[str, str]) -> dict[str, int]:
-        """Register FTP-uploaded files as WordPress media via PHP script.
+        """Register FTP-uploaded files as WordPress media via HTTP.
 
         Args:
             uploaded_files: Dict mapping filename -> remote URL path
@@ -161,6 +169,7 @@ class FTPUploader:
         for filename, url_path in uploaded_files.items():
             # Check if already registered
             if filename in self._media_cache:
+                self.logger.info(f"Already registered: {filename}")
                 continue
             files_to_register.append({"filename": filename, "url_path": url_path})
 
@@ -168,36 +177,50 @@ class FTPUploader:
             self.logger.info("All files already registered")
             return {}
 
-        # Write the file list to a JSON file for the PHP script
-        now = datetime.now()
-        list_file = Path(f"output/ftp_register_{now.strftime('%Y%m%d_%H%M%S')}.json")
-        list_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(list_file, "w", encoding="utf-8") as f:
-            json.dump(files_to_register, f, ensure_ascii=False, indent=2)
+        # Call the PHP registration script via HTTP
+        if not self.wp_api_url:
+            self.logger.warning("No WP API URL configured, cannot register via HTTP")
+            return {}
 
-        self.logger.info(f"File list written to: {list_file}")
-        self.logger.info(
-            "Please run the PHP registration script on your WordPress server:"
-        )
-        self.logger.info(
-            f"  php wp-content/uploads/ftp-register-media.php {list_file.name}"
-        )
+        registration_url = f"{self.wp_api_url}/ftp-register-media.php"
+        headers = {"Content-Type": "application/json"}
+        if self.registration_key:
+            headers["X-FTP-Register-Key"] = self.registration_key
 
-        # Try to read back results if they exist
-        result_file = list_file.with_suffix(".result.json")
-        if result_file.exists():
-            try:
-                with open(result_file, "r", encoding="utf-8") as f:
-                    results = json.load(f)
-                for item in results:
-                    if item.get("media_id"):
-                        self._media_cache[item["filename"]] = item["media_id"]
-                self._save_cache()
-                return {item["filename"]: item["media_id"] for item in results if item.get("media_id")}
-            except Exception as e:
-                self.logger.warning(f"Failed to read registration results: {e}")
+        try:
+            response = requests.post(
+                registration_url,
+                json=files_to_register,
+                headers=headers,
+                timeout=300,  # 5 minutes for large batches
+            )
 
-        return {}
+            if response.status_code != 200:
+                self.logger.error(f"Registration failed: HTTP {response.status_code}")
+                self.logger.error(f"Response: {response.text[:500]}")
+                return {}
+
+            data = response.json()
+            if not data.get("success"):
+                self.logger.error(f"Registration failed: {data.get('error', 'Unknown error')}")
+                return {}
+
+            # Process results
+            registered = {}
+            for item in data.get("results", []):
+                if item.get("media_id"):
+                    registered[item["filename"]] = item["media_id"]
+                    self._media_cache[item["filename"]] = item["media_id"]
+
+            self._save_cache()
+            self.logger.info(
+                f"Registered {len(registered)}/{len(files_to_register)} images"
+            )
+            return registered
+
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"HTTP request failed: {e}")
+            return {}
 
     def get_media_id(self, filename: str) -> int | None:
         """Get cached media ID for a filename."""

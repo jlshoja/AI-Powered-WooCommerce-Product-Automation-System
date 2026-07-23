@@ -65,6 +65,8 @@ class ImageManager:
                 uploads_path=ftp_config.get("uploads_path", "/public_html/wp-content/uploads"),
                 passive_mode=ftp_config.get("passive_mode", True),
                 media_cache_path=media_cache_path,
+                wp_api_url=ftp_config.get("wp_api_url", ""),
+                registration_key=ftp_config.get("registration_key", ""),
             )
 
     def process_product_images(
