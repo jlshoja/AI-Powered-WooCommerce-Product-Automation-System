@@ -30,12 +30,12 @@ python -m src.main
 ├── docs/                   # Documentation
 ├── input/                  # Excel input files
 ├── output/                 # Generated reports, logs, image cache
-├── scripts/                # One-off scripts (Excel restructuring)
+├── scripts/                # One-off scripts (Excel restructuring, FTP registration)
 ├── src/
 │   ├── ai/                 # AI client & manager
-│   ├── automation/         # Batch import, scheduling, tracking
+│   ├── automation/         # Batch import, scheduling, tracking with checkpoints
 │   ├── excel_parser/       # Excel → Pydantic models
-│   ├── image_manager/      # Download, validate, upload, attach
+│   ├── image_manager/      # Download, validate, upload (REST API or FTP), attach
 │   ├── reporter/           # Validation reports
 │   ├── tests/              # Ad-hoc verification
 │   ├── utils/              # Logger, rate limiter, credentials
@@ -92,6 +92,17 @@ image:
   allowed_formats: ${IMAGE_ALLOWED_FORMATS:-"JPEG,PNG,WEBP"}
   ssrf_protection: ${IMAGE_SSRF_PROTECTION:-true}
   attachment_mode: "${IMAGE_ATTACHMENT_MODE:-gallery}"
+  upload_mode: "${IMAGE_UPLOAD_MODE:-restapi}"
+
+ftp:
+  host: "${FTP_HOST}"
+  port: ${FTP_PORT:-21}
+  user: "${FTP_USER}"
+  password: "${FTP_PASSWORD}"
+  uploads_path: "${FTP_UPLOADS_PATH:-/public_html/wp-content/uploads}"
+  passive_mode: ${FTP_PASSIVE_MODE:-true}
+  wp_api_url: "${FTP_WP_API_URL}"
+  registration_key: "${FTP_REGISTRATION_KEY}"
 ```
 
 ### Environment Variables (`.env`)
@@ -121,8 +132,9 @@ EXCEL_OUTPUT_DIR=../output
 IMAGE_LOCAL_FOLDER=input/images
 IMAGE_CACHE_DIR=output/image_cache
 
-# Image attachment mode: "gallery" (featured + gallery, no variation images) or "variation"
+# Image modes
 IMAGE_ATTACHMENT_MODE=gallery
+IMAGE_UPLOAD_MODE=restapi
 
 # Optional
 VALIDATION_MIN_PRICE=1000
@@ -130,6 +142,16 @@ VALIDATION_MAX_PRICE=10000000
 IMAGE_MAX_SIZE_MB=2
 IMAGE_ALLOWED_FORMATS="JPEG,PNG,WEBP"
 IMAGE_SSRF_PROTECTION=true
+
+# FTP (required when IMAGE_UPLOAD_MODE=ftp)
+FTP_HOST=your-ftp-host.com
+FTP_PORT=21
+FTP_USER=your-ftp-username
+FTP_PASSWORD=your-ftp-password
+FTP_UPLOADS_PATH=/public_html/wp-content/uploads
+FTP_PASSIVE_MODE=true
+FTP_WP_API_URL=https://your-store.com
+FTP_REGISTRATION_KEY=
 ```
 
 ## Running the System
@@ -154,46 +176,92 @@ python -m src.main --dry-run
 python -m src.main --credentials C:\path\to\providers.xlsx
 ```
 
+### FTP Bulk Upload
+```bash
+python -m src.main --upload-mode ftp
+```
+
+### Resume from Checkpoint
+```bash
+python -m src.main --resume
+```
+
+### Retry Failed Products
+```bash
+python -m src.main --retry-failed
+```
+
 ### Windows Menu
 Double-click `run.bat` for a menu-based interface.
 
-## Features (v0.3+)
+## Features (v0.4+)
 
 ### 1. Configurable Image Attachment Mode
 Set `IMAGE_ATTACHMENT_MODE` in `.env`:
 - **`gallery` (default)**: Featured image + product gallery. No variation-specific images.
 - **`variation`**: Legacy behavior - each variation gets its own image attached.
 
-### 2. Existing WooCommerce Attributes Reuse
+### 2. FTP Bulk Upload Mode
+Set `IMAGE_UPLOAD_MODE=ftp` or use `--upload-mode ftp`:
+- Bulk upload images via FTP (much faster for 1000+ images)
+- Auto-register as WordPress media via PHP script
+- One-time setup: upload `scripts/ftp-register-media.php` to WordPress root
+
+### 3. Existing WooCommerce Attributes Reuse
 At startup, fetches all existing WC attributes and their terms.
 - Matches by Persian display name (e.g., "رنگ" for Color)
 - Reuses existing attribute IDs instead of creating duplicates
 - Resolves term names to existing term IDs; creates missing terms under the correct attribute
 - Enables color swatch plugins to work (if hex codes are configured in WC term meta)
 
-### 3. Persian Attribute Labels
+### 4. Persian Attribute Labels
 Reads `attribute_name:*` columns from CSV (e.g., `attribute_name:color` → "رنگ")
 - Uses Persian display names in WC API payloads
 - Fixes frontend showing "Color" instead of "رنگ"
 
-### 4. Media Cache (Avoid Re-uploads)
+### 5. Media Cache (Avoid Re-uploads)
 - Local cache: `output/media_cache.json` maps filename → WC media ID
 - Before upload, searches WC media library by filename
 - Reuses existing media IDs, preventing duplicate uploads
 - Works across import runs
 
-### 5. Variation Stock Management
+### 6. Variation Stock Management
 - Variable products: parent has `manage_stock=false`
 - Variations handle their own stock quantities
 - Updates sync variations (create missing, update existing, delete stale)
 
-### 6. MIME Type Detection
+### 7. MIME Type Detection
 - Detects PNG/JPEG/WEBP/GIF from file signatures
 - No longer hardcodes `image/webp`
 
-### 7. Attribute Variation Filtering
+### 8. Attribute Variation Filtering
 - Only attributes actually used in variations get `"variation": true`
 - Other attributes (dimensions, materials, etc.) are specifications only
+
+### 9. WooCommerce Alignment
+Imported products match manually-created products:
+- `manage_stock`: true for simple, false for variable (variations manage own stock)
+- Color attribute: `visible: false` (matches WP Admin default)
+- Other attributes: `visible: true` (shown on product page)
+
+### 10. Crash Recovery & Resumability
+- Per-stage checkpoints saved to `output/import_checkpoint.json`
+- `--resume` flag skips fully completed products
+- `--retry-failed` flag re-runs only failed products from last import
+- Partial `import_report.xlsx` written every 10 products
+- Idempotent variation creation (no duplicates on re-run)
+
+## CLI Flags Reference
+
+| Flag | Description |
+|------|-------------|
+| `--test-sku SKU` | Import only a single product by SKU |
+| `--dry-run` | Validate without uploading |
+| `--batch-size N` | Products per batch (default: 10) |
+| `--credentials PATH` | External credentials Excel file |
+| `--upload-mode {restapi,ftp}` | Image upload mode (default: restapi) |
+| `--resume` | Skip fully completed products (use checkpoint) |
+| `--retry-failed` | Re-run only failed products from last import |
 
 ## Testing
 
@@ -295,6 +363,8 @@ tail -f output/logs/src.woocommerce.client.log
 | `Duplicate SKU` | Enable upsert, or clean WC first |
 | `Images not in gallery` | Ensure `IMAGE_ATTACHMENT_MODE=gallery` |
 | `Color swatches not showing` | Add hex codes to color terms in WP Admin |
+| `Product out of stock` | Check variation stock (parent manage_stock=false) |
+| `Resume not working` | Check `output/import_checkpoint.json` exists |
 
 ### Debug Mode
 ```bash
@@ -348,178 +418,19 @@ See `docs/Excel_Data_Dictionary.md` for full schema.
 - `mypy` - Type checking
 - `pre-commit` - Git hooks
 
-## CI/CD (Planned)
-
-```yaml
-# .github/workflows/ci.yml
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -e ".[dev]"
-      - run: ruff check src/ tests/
-      - run: mypy src/
-      - run: pytest --cov=src --cov-fail-under=80
-```
-
-## Release Process
-
-1. Update version in `pyproject.toml`
-2. Update `CHANGELOG.md`
-3. Tag: `git tag v0.3.0`
-4. Push: `git push origin v0.3.0`
-5. GitHub Actions builds & publishes (when configured)
-
-## Troubleshooting Checklist
-
-- [ ] `.env` exists with valid credentials
-- [ ] `input/Product_Master.csv` exists
-- [ ] WC API accessible (test in browser)
-- [ ] OpenAI key valid and has quota
-- [ ] Python 3.10+ installed
-- [ ] Dependencies installed (`pip install -e ".[dev]"`)
-- [ ] Tests pass (`pytest`)
-- [ ] Lint clean (`ruff check src/ tests/`)
-
----
-
-## Key Implementation Files
-
-| Feature | Files |
-|---------|-------|
-| Image attachment modes | `src/image_manager/manager.py`, `src/image_manager/uploader.py` |
-| WC attribute reuse | `src/woocommerce/client.py` (`load_attributes`, `resolve_attribute_id`, `resolve_term_ids`) |
-| Persian labels | `src/excel_parser/reader.py` (parses `attribute_name:*`), `src/woocommerce/client.py` |
-| Media cache | `src/image_manager/uploader.py` (`_media_cache`, `_find_media_by_filename`) |
-| Gallery building | `src/image_manager/uploader.py` (`attach_image_to_product`) |
-| Attribute variation filter | `src/woocommerce/client.py` (`_map_product_to_payload` checks `variation_attr_names`) |
-| MIME detection | `src/image_manager/uploader.py` (`upload_image` uses file signatures) |
-
-<tool_call>
-<function=write>
-<parameter=content>
-# AI-Powered WooCommerce Product Automation System
-
-## Project Overview
-Automated product import pipeline: **CSV/Excel → Pydantic Models → AI SEO Enrichment → WooCommerce REST API → Image Upload & Attachment**
-
-**Run command**: `python -m src.main` (from project root)
-
----
-
-## Completed Features (v0.3.0)
-
-### 1. Configurable Image Attachment Mode
-- **gallery** (default): Featured image + product gallery thumbnails. No variation-specific images.
-- **variation**: Legacy behavior - each variation gets its own image attached.
-- Set via `IMAGE_ATTACHMENT_MODE` in `.env` or `image.attachment_mode` in `settings.yaml`
-
-### 2. Existing WooCommerce Attributes Reuse
-- Fetches all WC attributes + terms at startup (`load_attributes()`)
-- Matches by Persian display name (e.g., "رنگ" → color attribute)
-- Reuses existing attribute IDs and term IDs
-- Creates missing terms under the correct existing attribute
-- Enables color swatch plugins (requires hex codes in WC term meta)
-
-### 3. Persian Attribute Labels
-- Parses `attribute_name:*` columns from CSV (e.g., `attribute_name:color` → "رنگ")
-- Uses Persian names in WC API payloads
-- Fixes frontend showing English keys instead of Persian labels
-
-### 4. Media Cache (Avoid Re-uploads)
-- Local JSON cache: `output/media_cache.json` (filename → media_id)
-- Before upload: searches WP media library by filename
-- Reuses existing media IDs, prevents duplicate uploads
-
-### 5. Gallery Building Logic
-- `attach_image_to_product()` fetches existing images, adds new one, re-indexes positions
-- Main image at position 0, gallery images at 1, 2, ...
-- No duplicates, no overwrites
-
-### 6. Variation Stock Management
-- Variable products: parent `manage_stock=false`
-- Variations: handle own stock quantities
-- Sync on update: create missing, update existing, delete stale variations
-
-### 7. MIME Type Detection
-- File signature sniffing: PNG/JPEG/WEBP/GIF
-- No longer hardcoded `image/webp`
-
-### 8. Attribute Variation Filtering
-- Only attributes used in variations get `"variation": true`
-- Others (dimensions, materials, etc.) are specifications only
-
-### 9. Variation Images Fixed (v0.3.1)
-- Variations no longer get their own images in gallery mode
-- Gallery images attached to parent product only
-
----
-
-## Configuration (`.env`)
-
-```bash
-# WooCommerce
-WOOCOMMERCE_API_URL=https://luxbaz.com
-WOOCOMMERCE_CONSUMER_KEY=ck_xxx
-WOOCOMMERCE_CONSUMER_SECRET=cs_xxx
-
-# WordPress (REQUIRED for media uploads)
-# WP Admin > Users > Edit > Application Passwords
-WP_USER=admin
-WP_APP_PASSWORD=xxxx xxxx xxxx xxxx
-
-# Image mode: gallery | variation
-IMAGE_ATTACHMENT_MODE=gallery
-
-# Paths (absolute paths recommended)
-EXCEL_INPUT_PATH=E:/.../input/Product_Master.csv
-IMAGE_LOCAL_FOLDER=E:/.../input/images
-IMAGE_CACHE_DIR=E:/.../output/image_cache
-```
-
----
-
-## Input Data Format
-
-**CSV columns:**
-- `attribute:color` → values like `مشکی طرح 1|مشکی طرح 2`
-- `attribute_name:color` → Persian label `رنگ`
-- `image_filename` → pipe-separated local filenames: `main.webp|gallery1.webp|gallery2.webp`
-- `gallery_images` → pipe-separated URLs (first = main if duplicated)
-- `sale_tag` → used as tag if `tags` not provided
-
----
-
 ## Key Implementation Files
 
 | Feature | Files |
 |---------|-------|
 | Image modes | `src/image_manager/manager.py`, `src/image_manager/uploader.py` |
+| FTP upload | `src/image_manager/ftp_uploader.py`, `scripts/ftp-register-media.php` |
 | WC attribute reuse | `src/woocommerce/client.py` (`load_attributes`, `resolve_attribute_id`, `resolve_term_ids`) |
 | Persian labels | `src/excel_parser/reader.py` (parses `attribute_name:*`), `src/woocommerce/client.py` |
 | Media cache | `src/image_manager/uploader.py` (`_media_cache`, `_find_media_by_filename`) |
 | Gallery building | `src/image_manager/uploader.py` (`attach_image_to_product`) |
-| Attribute variation filter | `src/woocommerce/client.py` (`_map_product_to_payload`) |
+| Attribute variation filter | `src/woocommerce/client.py` (`_map_product_to_payload` checks `variation_attr_names`) |
 | MIME detection | `src/image_manager/uploader.py` (`upload_image` file signatures) |
-
----
-
-## Tests
-```bash
-pytest tests/ -v
-# 46 tests pass
-```
-
----
-
-## Remaining Manual Steps
-
-1. **Color Swatches**: Add hex codes to color terms in WP Admin > Products > Attributes > رنگ > Configure terms
-2. **FTP Bulk Upload** (Issue 5): Low priority, not implemented
+| Crash recovery | `src/automation/tracker.py` (checkpoints), `src/automation/importer.py` (resume logic) |
 
 ---
 
@@ -531,4 +442,4 @@ cd E:\Luxbaz\All Codes\Projects\AI-Powered-WooCommerce-Product-Automation-System
 python -m src.main --test-sku 5718
 ```
 
-All 46 tests pass. System is production-ready.
+All 46 tests pass. System is production-ready with crash recovery.

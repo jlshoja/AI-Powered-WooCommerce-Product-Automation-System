@@ -137,8 +137,35 @@ python -m src.main --dry-run
 python -m src.main --credentials C:\path\to\providers.xlsx
 ```
 
+### FTP Bulk Upload
+```bash
+python -m src.main --upload-mode ftp
+```
+
+### Resume from Checkpoint
+```bash
+python -m src.main --resume
+```
+
+### Retry Failed Products
+```bash
+python -m src.main --retry-failed
+```
+
 ### Windows Menu
 Double-click `run.bat` for a menu-based interface.
+
+## CLI Flags Reference
+
+| Flag | Description |
+|------|-------------|
+| `--test-sku SKU` | Import only a single product by SKU |
+| `--dry-run` | Validate without uploading |
+| `--batch-size N` | Products per batch (default: 10) |
+| `--credentials PATH` | External credentials Excel file |
+| `--upload-mode {restapi,ftp}` | Image upload mode (default: restapi) |
+| `--resume` | Skip fully completed products (use checkpoint) |
+| `--retry-failed` | Re-run only failed products from last import |
 
 ## Testing
 

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this format.
 
+## [0.4.0] - 2026-07-23
+
+### Added
+- **FTP Bulk Upload**: `--upload-mode ftp` for fast bulk image upload via FTP (for 1000+ images)
+- **FTP Media Registration**: `scripts/ftp-register-media.php` auto-registers FTP-uploaded files as WP media
+- **Crash Recovery**: Per-stage checkpoints saved to `output/import_checkpoint.json`
+- **Resume Flag**: `--resume` skips fully completed products on restart
+- **Retry Failed Flag**: `--retry-failed` re-runs only failed products from last import
+- **Partial Reports**: `import_report.xlsx` written every 10 products (crash-safe)
+- **Idempotent Variations**: `_create_variations()` checks existing SKUs before creating (no duplicates)
+
+### Fixed
+- **Color Swatches**: Attributes now link to global WC attributes (type=color) instead of creating local ones
+- **Attribute Pagination**: `load_attributes()` fetches ALL terms (not just first 100)
+- **manage_stock**: Variable products have `manage_stock=false` (variations manage own stock)
+- **Attribute Visibility**: Color attribute `visible=false` only, all others `visible=true`
+- **Term Resolution**: Fallback search when term creation fails (term_exists error)
+
+### Changed
+- **ImageManager**: Supports both REST API and FTP upload modes
+- **ProgressTracker**: Writes checkpoints after each stage, periodic report generation
+- **BatchImporter**: Uses checkpoints for resume, per-product stage tracking
+- **CLI**: Added `--upload-mode`, `--resume`, `--retry-failed` flags
+
+### Configuration
+- Added `ftp` section to `settings.yaml` (host, port, user, password, wp_api_url)
+- Added `IMAGE_UPLOAD_MODE` to `.env` (restapi/ftp)
+- Added `FTP_*` variables to `.env.example`
+
 ## [0.3.0] - 2026-07-22
 
 ### Added

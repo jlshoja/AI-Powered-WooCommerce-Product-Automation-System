@@ -1,7 +1,7 @@
 # AI-Powered WooCommerce Product Automation System
 
 ## Overview
-Automate WooCommerce product imports from Excel with **AI-generated SEO content**, **validation**, and **batch processing**.
+Automate WooCommerce product imports from Excel with **AI-generated SEO content**, **validation**, **FTP bulk upload**, and **crash-recoverable batch processing**.
 
 ## Features
 - ✅ **Excel to WooCommerce**: Import products, variations, categories, and images
@@ -13,17 +13,22 @@ Automate WooCommerce product imports from Excel with **AI-generated SEO content*
 - ✅ **Dry Run Mode**: Validate without uploading (`--dry-run`)
 - ✅ **Validation**: Check for missing fields, duplicate SKUs, and invalid data
 - ✅ **Image Management**: Download from local folder or your website, validate, upload
+- ✅ **FTP Bulk Upload**: Fast bulk image upload via FTP (`--upload-mode ftp`)
+- ✅ **REST API Upload**: Default image upload via WordPress REST API
 - ✅ **Batch Automation**: Schedule imports and track progress
 - ✅ **Rate Limiting**: Token bucket algorithm (prevents 429 errors)
 - ✅ **SSRF Protection**: Blocks private IPs in image URLs
 - ✅ **HTML Sanitization**: Bleach sanitization on AI output
 - ✅ **Idempotent Imports**: Upsert by SKU - safe to re-run
+- ✅ **Crash Recovery**: Per-stage checkpoints, resume from last good state
+- ✅ **Retry Failed**: Re-run only failed products from last import
 
 ## Quick Start (0 to 100)
 
 ### 1. Prerequisites
 - Python 3.10+
 - WooCommerce REST API credentials (Consumer Key/Secret)
+- WordPress Application Password (for media uploads)
 - OpenAI API key (optional, for AI SEO content)
 - Excel file or CSV with product data
 
@@ -40,9 +45,11 @@ pip install -e .
 cp .env.example .env
 
 # Edit .env with your credentials
-# WOOCOMMERCE_API_URL=https://your-store.com/wp-json/wc/v3
+# WOOCOMMERCE_API_URL=https://your-store.com
 # WOOCOMMERCE_CONSUMER_KEY=ck_xxx
 # WOOCOMMERCE_CONSUMER_SECRET=cs_xxx
+# WP_USER=admin
+# WP_APP_PASSWORD=xxxx xxxx xxxx xxxx
 # OPENAI_API_KEY=sk-xxx (optional)
 ```
 
@@ -52,7 +59,7 @@ See [QUICK_START.md](docs/QUICK_START.md#q13-ai-api-configuration) for format.
 ### 4. Prepare Input Data
 
 **Option A: From CSV (Recommended)**
-Place your CSV at `input/Product_Master_Input.csv`. The project auto-converts to XLSX on startup.
+Place your CSV at `input/Product_Master.csv`. The project auto-converts to XLSX on startup.
 
 **Option B: From Excel**
 Place `Product_Master.xlsx` in `input/` folder with 5 sheets.
@@ -74,21 +81,62 @@ python -m src.main --dry-run
 
 # With external credentials
 python -m src.main --credentials C:\path\to\providers.xlsx
+
+# FTP bulk upload mode (for large imports)
+python -m src.main --upload-mode ftp
+
+# Resume from last checkpoint (skip completed products)
+python -m src.main --resume
+
+# Re-run only failed products from last import
+python -m src.main --retry-failed
 ```
 
 ### 6. Check Results
-- `output/reports/import_report.xlsx` - Success/failure per SKU
-- `output/reports/validation_errors.xlsx` - Validation failures
+- `import_report.xlsx` - Success/failure per SKU
+- `output/import_checkpoint.json` - Per-stage progress (for resume)
 - `output/logs/system.log` - Detailed logs
 
-## Image Handling
+## Image Upload Modes
 
-**How images are found:**
-1. Check `input/images/{local_filename}` (local folder)
-2. If not found → download from `image_url` (your own website)
-3. If both fail → product imported without image, logged in report
+### REST API Mode (default)
+Images uploaded via WordPress REST API. Safe, checks for duplicates.
+```bash
+python -m src.main --upload-mode restapi
+```
 
-**Important:** `image_url` contains URLs from YOUR website (e.g., `https://luxbaz.com/...`), not supplier URLs.
+### FTP Mode (for 1000+ images)
+Fast bulk upload via FTP. Requires one-time PHP script setup.
+```bash
+# One-time: upload scripts/ftp-register-media.php to WordPress root
+# Then:
+python -m src.main --upload-mode ftp
+```
+See [DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) for FTP setup details.
+
+## Crash Recovery
+
+The pipeline saves checkpoints after each stage:
+1. `product_created` → Product exists in WooCommerce
+2. `variations_created` → All variations synced
+3. `images_uploaded` → All images attached
+4. `completed` → Fully imported
+
+If the process crashes:
+```bash
+# Resume from last checkpoint (skip completed products)
+python -m src.main --resume
+
+# Or re-run only failed products
+python -m src.main --retry-failed
+```
+
+## WooCommerce Alignment
+
+Imported products match manually-created products:
+- **manage_stock**: `true` for simple products, `false` for variable (variations manage own stock)
+- **Color attribute**: `visible: false` (matches WP Admin default)
+- **Other attributes**: `visible: true` (shown on product page)
 
 ## AI Provider Fallback
 
@@ -122,12 +170,26 @@ mypy src/
 python scripts/restructure_excel.py
 ```
 
+## CLI Flags Reference
+| Flag | Description |
+|------|-------------|
+| `--test-sku SKU` | Import only a single product by SKU |
+| `--dry-run` | Validate without uploading |
+| `--batch-size N` | Products per batch (default: 10) |
+| `--credentials PATH` | External credentials Excel file |
+| `--upload-mode {restapi,ftp}` | Image upload mode (default: restapi) |
+| `--resume` | Skip fully completed products (use checkpoint) |
+| `--retry-failed` | Re-run only failed products from last import |
+
 ## Troubleshooting
 | Issue | Solution |
 |-------|----------|
 | 429 Rate Limited | Reduce `rate_limit_rps` in config/settings.yaml |
 | Images not uploading | Check `input/images/` or verify `image_url` is accessible |
-| Validation fails | Check `output/reports/validation_errors.xlsx` |
+| Validation fails | Check `validation_errors.xlsx` |
 | AI not working | Verify API key in .env or providers.xlsx |
 | API key invalid | Project logs warning and continues without AI |
 | Import hangs | Check `output/logs/system.log` for retries |
+| Product out of stock | Check variation stock quantities (parent has manage_stock=false) |
+| Colors show as dropdown | Ensure IMAGE_ATTACHMENT_MODE=gallery, color attribute is global |
+| Resume not working | Check `output/import_checkpoint.json` exists |
