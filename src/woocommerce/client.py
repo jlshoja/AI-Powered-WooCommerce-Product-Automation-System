@@ -363,6 +363,11 @@ class WooCommerceClient:
         categories = self.resolve_category_ids(product.categories) if product.categories else []
         is_variable = bool(product.attributes)
 
+        # Determine which attributes are used in variations
+        variation_attr_names = set()
+        for v in product.variations:
+            variation_attr_names.update(v.attributes.keys())
+
         payload = {
             "name": product.post_title,
             "type": "variable" if is_variable else "simple",
@@ -372,7 +377,12 @@ class WooCommerceClient:
             "short_description": product.short_description or "",
             "categories": categories,
             "attributes": [
-                {"name": attr_name, "options": attr_values, "visible": True, "variation": True}
+                {
+                    "name": attr_name,
+                    "options": attr_values,
+                    "visible": True,
+                    "variation": attr_name in variation_attr_names,
+                }
                 for attr_name, attr_values in product.attributes.items()
             ],
         }
