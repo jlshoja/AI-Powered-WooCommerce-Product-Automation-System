@@ -95,10 +95,19 @@ class ImageDownloader:
             return None
 
         # Determine filename
+        url_filename = image_url.split("/")[-1]
         if local_filename:
-            filename = local_filename
+            # If local_filename has no extension, append the extension from the URL
+            if "." not in local_filename.split("/")[-1]:
+                url_ext = Path(url_filename).suffix
+                if url_ext:
+                    filename = f"{local_filename}{url_ext}"
+                else:
+                    filename = local_filename
+            else:
+                filename = local_filename
         else:
-            filename = image_url.split("/")[-1]
+            filename = url_filename
         cache_path = self.cache_dir / filename
 
         # Skip if already cached

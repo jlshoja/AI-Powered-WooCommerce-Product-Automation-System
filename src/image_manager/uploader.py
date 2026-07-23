@@ -7,6 +7,8 @@ Uploads images to WordPress and attachs them to products/variations.
 from pathlib import Path
 from typing import Any
 
+import mimetypes
+
 import requests
 
 from src.utils.logger import Logger
@@ -35,9 +37,26 @@ class ImageUploader:
         try:
             # Prepare the multipart form data
             filename = image_path.name
+            # Detect MIME type from file extension, fallback to content sniffing
+            mime_type = mimetypes.guess_type(filename)[0]
+            if not mime_type:
+                # Sniff first bytes for common image signatures
+                with open(image_path, "rb") as f:
+                    header = f.read(8)
+                if header[:4] == b"\x89PNG":
+                    mime_type = "image/png"
+                elif header[:2] == b"\xff\xd8":
+                    mime_type = "image/jpeg"
+                elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+                    mime_type = "image/webp"
+                elif header[:4] == b"GIF8":
+                    mime_type = "image/gif"
+                else:
+                    mime_type = "application/octet-stream"
+
             with open(image_path, "rb") as f:
                 files = {
-                    "file": (filename, f, "image/webp")
+                    "file": (filename, f, mime_type)
                 }
                 # Add alt_text and title as form fields
                 data = {}
