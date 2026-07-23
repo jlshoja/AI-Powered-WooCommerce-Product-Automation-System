@@ -212,6 +212,7 @@ def main():
         wp_user=settings.get("wordpress", {}).get("user", ""),
         wp_app_password=settings.get("wordpress", {}).get("app_password", ""),
         attachment_mode=settings["image"].get("attachment_mode", "gallery"),
+        media_cache_path=(Path(__file__).parent.parent / "output" / "media_cache.json").resolve(),
     )
 
     ai_manager = None

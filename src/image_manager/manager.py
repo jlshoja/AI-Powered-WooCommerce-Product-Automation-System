@@ -21,15 +21,29 @@ from src.utils.logger import Logger
 class ImageManager:
     """Orchestrates the image workflow."""
 
-    def __init__(self, woocommerce_client, local_images_dir: Path | None = None, wp_user: str = "", wp_app_password: str = "", attachment_mode: str = "gallery"):
+    def __init__(
+        self,
+        woocommerce_client,
+        local_images_dir: Path | None = None,
+        wp_user: str = "",
+        wp_app_password: str = "",
+        attachment_mode: str = "gallery",
+        media_cache_path: Path | None = None,
+    ):
         """Initialize the ImageManager.
 
         Args:
             attachment_mode: "gallery" (featured + gallery, no variation images) or "variation" (variation-specific images)
+            media_cache_path: Path to JSON file for caching media IDs by filename
         """
         self.downloader = ImageDownloader(local_images_dir=local_images_dir)
         self.validator = ImageValidator()
-        self.uploader = ImageUploader(woocommerce_client, wp_user=wp_user, wp_app_password=wp_app_password)
+        self.uploader = ImageUploader(
+            woocommerce_client,
+            wp_user=wp_user,
+            wp_app_password=wp_app_password,
+            media_cache_path=media_cache_path,
+        )
         self.logger = Logger(__name__).get_logger()
         self.attachment_mode = attachment_mode  # "gallery" or "variation"
 

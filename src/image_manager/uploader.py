@@ -4,6 +4,7 @@ Image Uploader for the WooCommerce Product Automation System.
 Uploads images to WordPress and attachs them to products/variations.
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -23,20 +24,91 @@ class ImageUploader:
         woocommerce_client: WooCommerceClient,
         wp_user: str = "",
         wp_app_password: str = "",
+        media_cache_path: Path | None = None,
     ):
         """Initialize the ImageUploader."""
         self.woocommerce_client = woocommerce_client
         self.wp_user = wp_user
         self.wp_app_password = wp_app_password
         self.logger = Logger(__name__).get_logger()
+        self.media_cache_path = media_cache_path or Path("output/media_cache.json")
+        self._media_cache: dict[str, int] = {}
+        self._load_cache()
+
+    def _load_cache(self) -> None:
+        """Load media cache from file."""
+        if self.media_cache_path.exists():
+            try:
+                with open(self.media_cache_path, encoding="utf-8") as f:
+                    self._media_cache = json.load(f)
+                self.logger.info(f"Loaded media cache: {len(self._media_cache)} entries")
+            except Exception as e:
+                self.logger.warning(f"Failed to load media cache: {e}")
+                self._media_cache = {}
+
+    def _save_cache(self) -> None:
+        """Save media cache to file."""
+        try:
+            self.media_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.media_cache_path, "w", encoding="utf-8") as f:
+                json.dump(self._media_cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.logger.warning(f"Failed to save media cache: {e}")
+
+    def _find_media_by_filename(self, filename: str) -> int | None:
+        """Search WordPress media library for an image by filename."""
+        # First check local cache
+        if filename in self._media_cache:
+            self.logger.info(f"Found image in cache: {filename} (ID: {self._media_cache[filename]})")
+            return self._media_cache[filename]
+
+        # Search WordPress media library
+        try:
+            # WordPress media search by filename
+            base_url = self.woocommerce_client.api_url
+            if base_url.endswith('/wp-json/wc/v3'):
+                base_url = base_url.replace('/wp-json/wc/v3', '')
+            url = f"{base_url}/wp-json/wp/v2/media"
+            
+            if self.wp_user and self.wp_app_password:
+                auth = (self.wp_user, self.wp_app_password)
+            else:
+                auth = (self.woocommerce_client.consumer_key, self.woocommerce_client.consumer_secret)
+
+            # Search by filename
+            response = requests.get(
+                url, auth=auth, params={"search": filename, "per_page": 5}, timeout=self.woocommerce_client.timeout
+            )
+            if response.status_code == 200:
+                media_items = response.json()
+                for item in media_items:
+                    # Match by source_url filename or title
+                    source_url = item.get("source_url", "")
+                    title = item.get("title", {}).get("rendered", "")
+                    if filename in source_url or filename in title:
+                        media_id = item.get("id")
+                        if media_id:
+                            self._media_cache[filename] = media_id
+                            self._save_cache()
+                            self.logger.info(f"Found existing media: {filename} (ID: {media_id})")
+                            return media_id
+        except Exception as e:
+            self.logger.warning(f"Failed to search media by filename: {e}")
+        return None
 
     def upload_image(
         self, image_path: Path, alt_text: str = "", title: str = ""
     ) -> dict[str, Any] | None:
         """Upload an image to WordPress using requests directly for multipart/form-data."""
         try:
-            # Prepare the multipart form data
+            # Check if image already exists in WordPress media library
             filename = image_path.name
+            existing_id = self._find_media_by_filename(filename)
+            if existing_id:
+                self.logger.info(f"Image already exists, reusing: {filename} (ID: {existing_id})")
+                return {"id": existing_id, "source_url": f"cached:{existing_id}"}
+
+            # Prepare the multipart form data
             # Detect MIME type from file extension, fallback to content sniffing
             mime_type = mimetypes.guess_type(filename)[0]
             if not mime_type:
