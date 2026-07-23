@@ -8,6 +8,7 @@ Tests:
 """
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +24,7 @@ def batch_importer():
     """Fixture to initialize the BatchImporter."""
     woocommerce_client = MagicMock()
     image_manager = MagicMock()
-    return BatchImporter(woocommerce_client, image_manager)
+    return BatchImporter(woocommerce_client, image_manager, checkpoint_path=Path("/dev/null"))
 
 
 @pytest.fixture

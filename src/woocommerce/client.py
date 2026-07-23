@@ -221,10 +221,10 @@ class WooCommerceClient:
             return self.create_product(product)
 
     def _create_variations(self, product_id: int, product: Product) -> list[int]:
-        """Create variations for a variable product.
+        """Create variations for a variable product (idempotent — skips existing SKUs).
 
         Returns:
-            List of created variation IDs for potential rollback
+            List of created/existing variation IDs for potential rollback
         """
         variation_ids = []
         # Group variations by parent_sku (if applicable)
@@ -235,8 +235,16 @@ class WooCommerceClient:
                     variations_by_parent[product.sku] = []
                 variations_by_parent[product.sku].append(variation)
 
-        # Create variations
+        # Fetch existing variations to avoid duplicates
+        existing = self.get_product_variations(product_id) or []
+        existing_skus = {v["sku"]: v["id"] for v in existing if v.get("sku")}
+
+        # Create variations (skip if SKU already exists)
         for variation in variations_by_parent.get(product.sku, []):
+            if variation.sku in existing_skus:
+                self.logger.info(f"Variation {variation.sku} already exists (ID: {existing_skus[variation.sku]}), skipping")
+                variation_ids.append(existing_skus[variation.sku])
+                continue
             response = self.create_variation(product_id, variation)
             if response and response.get("id"):
                 variation_ids.append(response["id"])

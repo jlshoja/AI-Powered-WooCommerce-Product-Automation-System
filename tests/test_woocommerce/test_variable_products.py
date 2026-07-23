@@ -75,11 +75,12 @@ def test_create_variable_product(client):
         mock_retry.side_effect = [
             [{"id": 100, "name": "کیف مردانه"}],  # Category resolution (GET)
             {"id": 123, "sku": "2106"},  # Product creation (POST)
+            [],  # get_product_variations (empty = no existing)
             {"id": 456, "sku": "2106-green"},  # Variation creation (POST)
         ]
         response = client.create_product(product)
         assert response["id"] == 123
-        assert mock_retry.call_count == 3  # Category + Product + Variation
+        assert mock_retry.call_count == 4  # Category + Product + Get variations + Create variation
 
 
 def test_create_variation_failure(client):
