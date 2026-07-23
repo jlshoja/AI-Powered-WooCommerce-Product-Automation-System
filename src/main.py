@@ -206,6 +206,10 @@ def main():
         rate_burst=settings["woocommerce"].get("rate_burst", 2),
     )
 
+    # Load existing WC attributes and terms at startup
+    # This enables reuse of global attributes (e.g. color swatches)
+    woocommerce_client.load_attributes()
+
     image_manager = ImageManager(
         woocommerce_client,
         local_images_dir=(Path(__file__).parent.parent / settings["image"].get("local_folder", "../input/images")).resolve(),

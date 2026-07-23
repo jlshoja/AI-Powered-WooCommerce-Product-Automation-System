@@ -377,17 +377,28 @@ class WooCommerceClient:
             # Cache attribute ID by name
             self._attribute_cache[attr_name] = attr_id
 
-            # Fetch terms for this attribute
-            terms_resp = self._retry_request("get", f"products/attributes/{attr_id}/terms", params={"per_page": 100})
-            if terms_resp and isinstance(terms_resp, list):
-                term_map = {}
+            # Fetch ALL terms for this attribute (handle pagination)
+            term_map = {}
+            page = 1
+            while True:
+                terms_resp = self._retry_request(
+                    "get", f"products/attributes/{attr_id}/terms",
+                    params={"per_page": 100, "page": page}
+                )
+                if not terms_resp or not isinstance(terms_resp, list) or len(terms_resp) == 0:
+                    break
                 for term in terms_resp:
                     term_name = term.get("name")
                     term_id = term.get("id")
                     if term_name and term_id:
                         term_map[term_name] = term_id
-                if term_map:
-                    self._term_cache[attr_id] = term_map
+                if len(terms_resp) < 100:
+                    break
+                page += 1
+
+            if term_map:
+                self._term_cache[attr_id] = term_map
+            self.logger.info(f"  Attribute '{attr_name}' (ID:{attr_id}): {len(term_map)} terms")
 
         self.logger.info(f"Loaded {len(self._attribute_cache)} attributes with terms")
 
@@ -395,8 +406,11 @@ class WooCommerceClient:
         """Resolve attribute display name to WC attribute ID."""
         return self._attribute_cache.get(display_name)
 
-    def resolve_term_ids(self, attribute_id: int, term_names: list[str]) -> list[dict[str, Any]]:
-        """Resolve term names to WC term IDs, creating if needed."""
+    def resolve_term_ids(self, attribute_id: int, term_names: list[str]) -> list[int]:
+        """Resolve term names to WC term IDs, creating if needed.
+
+        Returns a list of integer term IDs (for use in global attribute options).
+        """
         if attribute_id not in self._term_cache:
             self._term_cache[attribute_id] = {}
 
@@ -406,16 +420,27 @@ class WooCommerceClient:
         for name in term_names:
             term_id = term_map.get(name)
             if term_id is None:
-                # Create the term
+                # Try to create the term
                 resp = self._retry_request("post", f"products/attributes/{attribute_id}/terms", data={"name": name})
                 if resp and resp.get("id"):
                     term_id = resp["id"]
                     term_map[name] = term_id
                     self.logger.info(f"Created term: {name} under attribute {attribute_id} (ID: {term_id})")
                 else:
-                    term_id = None
+                    # Term might already exist (term_exists error) — search for it
+                    search_resp = self._retry_request(
+                        "get", f"products/attributes/{attribute_id}/terms",
+                        params={"search": name, "per_page": 100}
+                    )
+                    if search_resp and isinstance(search_resp, list):
+                        for t in search_resp:
+                            if t.get("name") == name:
+                                term_id = t["id"]
+                                term_map[name] = term_id
+                                self.logger.info(f"Found existing term: {name} under attribute {attribute_id} (ID: {term_id})")
+                                break
             if term_id:
-                resolved.append({"id": term_id})
+                resolved.append(term_id)
 
         return resolved
 
@@ -445,13 +470,10 @@ class WooCommerceClient:
             }
 
             if attr_id:
-                # Use existing attribute ID
+                # Use existing global attribute (preserves type=color for swatches)
                 attr_payload["id"] = attr_id
-                # Resolve term IDs for existing terms
-                term_ids = self.resolve_term_ids(attr_id, attr_values)
-                if term_ids:
-                    # Replace options with term objects containing IDs
-                    attr_payload["options"] = term_ids
+                # Verify all term names exist under this attribute
+                self.resolve_term_ids(attr_id, attr_values)
 
             attributes_payload.append(attr_payload)
 

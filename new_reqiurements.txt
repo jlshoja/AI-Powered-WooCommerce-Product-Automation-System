@@ -1,0 +1,297 @@
+
+# Product Import Issues and Required Improvements
+
+The image upload issue has been resolved successfully. However, there are several other issues that need to be reviewed and addressed before implementation.
+
+Please analyze all items below, explain your understanding of each one, identify any potential challenges or dependencies, and clarify any ambiguities with me. Do **not** start implementing anything until I confirm your proposed solution.
+
+After approval, implement the items **one by one**. After completing and testing each item, create a Git commit before moving to the next item so that we can easily restore the project to a known working state if necessary.
+
+---
+
+## Issue 1: Product Images and Variations
+
+Currently, the system attaches a separate image to each variation. As a result, when a variation is selected, the corresponding image is displayed.
+
+For this project, that behavior is not always desirable.
+
+### Current Requirement
+
+For now, I need the following behavior:
+
+- One **featured image** for the product.
+    
+- The featured image should be the image whose filename contains the word **"main"** (the first image in the `Gallery_images` field in the Excel file).
+    
+- All other images from `Gallery_images` should be added to the product gallery and displayed as thumbnails below the featured image.
+    
+- No variation-specific images should be attached.
+    
+
+### Future Requirement
+
+Please investigate whether we can add a configuration option that allows switching between:
+
+1. Attaching images to individual variations.
+    
+2. Using a single featured image plus a product gallery.
+    
+
+This option should be configurable through project settings.
+
+---
+
+## Issue 2: Color Variations Are Displayed as a Dropdown
+
+On the website, the **Color** attribute is configured to be displayed as colored swatches/icons.
+
+For products created manually on the website, users can select a color by clicking a colored icon.
+
+However, products imported by this project display Color as a standard dropdown list.
+
+This behavior is incorrect.
+
+Please investigate why imported products are not using the existing swatch configuration and explain what needs to be done so imported products behave exactly like existing products on the website.
+
+---
+
+## Issue 3: Use Existing Website Attributes
+
+I have already created product attributes in WooCommerce.
+
+I exported these attributes into the file:
+
+```text
+attribute.xlsx
+```
+
+located in the project root.
+
+Example:
+
+- Color attribute contains predefined colors and their hex codes.
+    
+- When a product color matches an existing color term, the corresponding hex code should be used automatically.
+    
+- This allows the color swatch plugin to display the correct colored icon.
+    
+
+The same principle applies to other attributes.
+
+### Requirement
+
+The importer should use and attach the existing WooCommerce attributes and terms instead of creating new independent attributes.
+
+Please review `attribute.xlsx` and explain how you plan to map imported values to the existing attributes and terms.
+
+---
+
+## Issue 4: Incorrect Attribute Labels
+
+There is a problem with attribute naming.
+
+In `Product_Master.xlsx`, attributes are defined using columns such as:
+
+```text
+attribute_name: color
+attribute: color
+```
+
+These are column headers only.
+
+Inside the rows, the Persian display name is stored.
+
+Example:
+
+```text
+رنگ
+```
+
+This Persian text should be used as the attribute label displayed on the product page.
+
+Currently, after import, the product displays:
+
+```text
+Color
+```
+
+instead of:
+
+```text
+رنگ
+```
+
+The importer appears to be using the column name instead of the actual attribute label value from the data.
+
+Please investigate how attribute names are currently generated and explain how this can be corrected.
+
+This issue may affect other attributes as well, not only Color.
+
+---
+
+## Issue 5: FTP-Based Image Upload for Large Imports
+
+For large imports with many products and images, uploading each image individually through the WordPress REST API may be slow and inefficient.
+
+Please investigate whether the following workflow is possible:
+
+1. Upload images in bulk to the server using FTP.
+    
+2. During product import, locate those existing images.
+    
+3. Attach the already-uploaded images to products and galleries.
+    
+4. Avoid re-uploading images through the REST API.
+    
+
+Please explain:
+
+- Whether this approach is technically possible.
+    
+- How WordPress media records would be created or linked.
+    
+- How existing uploaded files could be attached to products.
+    
+- Advantages and disadvantages compared to the current REST API approach.
+    
+- Your recommended implementation strategy.
+    
+
+---
+
+## Variable vs Non-Variable Attributes
+
+There is also an important issue regarding attributes.
+
+Attributes such as:
+
+- Color
+    
+- Application
+    
+- Dimensions
+    
+- Material
+    
+- And similar specifications
+    
+
+are currently all being treated as variation attributes.
+
+This is incorrect.
+
+Only specific attributes (for example, Color) should be used for product variations.
+
+All other attributes should be displayed only as product specifications and should not require customer selection.
+
+Please investigate how the importer determines which attributes become variations and propose a configurable solution that allows only selected attributes to be used for variations.
+
+---
+## Issue 6: Avoid Re-uploading Images for Existing Products
+
+There appears to be an efficiency issue when updating existing products.
+
+### Current Concern
+
+When a product already exists on the website and only a field such as the price changes, the importer should update only the modified data.
+
+However, based on the current behavior, it appears that product images may be uploaded again during every update operation.
+
+This can cause several problems:
+
+- Unnecessary API calls and slower imports.
+    
+- Increased server load.
+    
+- Duplicate images in the WordPress Media Library.
+    
+- Additional storage consumption.
+    
+- Difficulty managing media assets.
+    
+
+### Required Investigation
+
+Please review the current update workflow and determine:
+
+1. Whether images are re-uploaded when an existing product is updated.
+    
+2. Whether duplicate media entries can be created in WordPress.
+    
+3. How image matching is currently performed.
+    
+4. Whether existing uploaded images can be detected and reused.
+    
+
+### Desired Behavior
+
+When an existing product is found:
+
+- If only the price has changed, update only the price.
+    
+- If only stock has changed, update only the stock.
+    
+- If only product information has changed, update only the modified fields.
+    
+- Do not re-upload images that already exist and are already attached to the product.
+    
+
+### Smart Image Handling
+
+Before uploading an image, the importer should check whether the image already exists by using one or more of the following methods:
+
+- Original filename.
+    
+- Image URL.
+    
+- WordPress Media ID.
+    
+- File hash/checksum.
+    
+- Existing product-gallery associations.
+    
+
+If the image already exists:
+
+- Reuse the existing media item.
+    
+- Reattach it if necessary.
+    
+- Do not upload a duplicate file.
+    
+
+### Implementation Considerations
+
+Please explain:
+
+- The best strategy for detecting existing images.
+    
+- The performance impact of each approach.
+    
+- Whether Media IDs can be stored locally for future imports.
+    
+- How to safely support both new products and updates without creating duplicate media records.
+    
+
+Do not implement this yet. First analyze the current code and explain how product updates and image uploads are currently handled, then propose the safest and most efficient solution.
+## Implementation Process
+
+Please follow this workflow:
+
+1. Review all requirements.
+    
+2. Explain your understanding of each item.
+    
+3. Identify any questions or ambiguities.
+    
+4. Propose an implementation plan.
+    
+5. Wait for my approval.
+    
+6. Implement one item at a time.
+    
+7. Test each completed item.
+    
+8. Create a Git commit after each successfully tested item.
+    
+9. Proceed to the next item only after the previous item is completed and committed.
