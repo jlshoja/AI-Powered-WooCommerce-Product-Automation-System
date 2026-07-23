@@ -182,6 +182,11 @@ def parse_args():
         default=None,
         help="Image upload mode: 'restapi' (default) or 'ftp' (bulk upload for large imports)",
     )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="Re-run only products that failed in the last import (reads import_report.xlsx)",
+    )
     return parser.parse_args()
 
 
@@ -300,6 +305,24 @@ def main():
             logger.error(f"No product found with SKU: {args.test_sku}")
             sys.exit(1)
         logger.info(f"Test mode: importing single product with SKU={args.test_sku}")
+
+    # Filter to failed SKUs if --retry-failed is provided
+    if args.retry_failed:
+        import pandas as pd
+        report_path = Path("import_report.xlsx")
+        if not report_path.exists():
+            logger.error("import_report.xlsx not found. Run a normal import first.")
+            sys.exit(1)
+        df = pd.read_excel(report_path)
+        failed_skus = df[df["status"] == "failed"]["sku"].tolist()
+        if not failed_skus:
+            logger.info("No failed products found in import_report.xlsx")
+            sys.exit(0)
+        products = [p for p in products if p.sku in failed_skus]
+        if not products:
+            logger.error("Failed SKUs from report not found in input file")
+            sys.exit(1)
+        logger.info(f"Retry mode: re-running {len(products)} failed products")
 
     # Import products
     if args.dry_run:
