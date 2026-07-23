@@ -21,11 +21,11 @@ from src.utils.logger import Logger
 class ImageManager:
     """Orchestrates the image workflow."""
 
-    def __init__(self, woocommerce_client, local_images_dir: Path | None = None):
+    def __init__(self, woocommerce_client, local_images_dir: Path | None = None, wp_user: str = "", wp_app_password: str = ""):
         """Initialize the ImageManager."""
         self.downloader = ImageDownloader(local_images_dir=local_images_dir)
         self.validator = ImageValidator()
-        self.uploader = ImageUploader(woocommerce_client)
+        self.uploader = ImageUploader(woocommerce_client, wp_user=wp_user, wp_app_password=wp_app_password)
         self.logger = Logger(__name__).get_logger()
 
     def process_product_images(

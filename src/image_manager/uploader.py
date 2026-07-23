@@ -16,9 +16,16 @@ from src.woocommerce.client import WooCommerceClient
 class ImageUploader:
     """Uploads images to WordPress and attachs them to products/variations."""
 
-    def __init__(self, woocommerce_client: WooCommerceClient):
+    def __init__(
+        self,
+        woocommerce_client: WooCommerceClient,
+        wp_user: str = "",
+        wp_app_password: str = "",
+    ):
         """Initialize the ImageUploader."""
         self.woocommerce_client = woocommerce_client
+        self.wp_user = wp_user
+        self.wp_app_password = wp_app_password
         self.logger = Logger(__name__).get_logger()
 
     def upload_image(
@@ -45,7 +52,13 @@ class ImageUploader:
                 if base_url.endswith('/wp-json/wc/v3'):
                     base_url = base_url.replace('/wp-json/wc/v3', '')
                 url = f"{base_url}/wp-json/wp/v2/media"
-                auth = (self.woocommerce_client.consumer_key, self.woocommerce_client.consumer_secret)
+
+                # Use WordPress Application Passwords for media upload
+                # WooCommerce consumer keys don't have media upload permission
+                if self.wp_user and self.wp_app_password:
+                    auth = (self.wp_user, self.wp_app_password)
+                else:
+                    auth = (self.woocommerce_client.consumer_key, self.woocommerce_client.consumer_secret)
 
                 # Retry logic
                 for attempt in range(self.woocommerce_client.max_retries):
