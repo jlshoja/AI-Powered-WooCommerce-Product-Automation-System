@@ -378,12 +378,12 @@ class WooCommerceClient:
             "categories": categories,
             "attributes": [
                 {
-                    "name": attr_name,
-                    "options": attr_values,
+                    "name": attr_obj.display_name,
+                    "options": attr_obj.values,
                     "visible": True,
-                    "variation": attr_name in variation_attr_names,
+                    "variation": attr_obj.key in variation_attr_names,
                 }
-                for attr_name, attr_values in product.attributes.items()
+                for attr_key, attr_obj in product.attributes.items()
             ],
         }
 
@@ -413,8 +413,8 @@ class WooCommerceClient:
             "stock_quantity": variation.stock_quantity,
             "stock_status": variation.stock_status,
             "attributes": [
-                {"name": attr_name, "option": attr_value}
-                for attr_name, attr_value in variation.attributes.items()
+                {"name": attr_obj.display_name, "option": attr_obj.value}
+                for attr_key, attr_obj in variation.attributes.items()
             ],
         }
         # NOTE: Images are NOT included in variation creation payload.

@@ -13,7 +13,7 @@ Tests:
 
 import pytest
 
-from src.excel_parser.models import Product, ProductImage, Variation
+from src.excel_parser.models import Product, ProductAttribute, ProductImage, Variation, VariationAttribute
 from src.validator.rules import (
     AttributeValidationRule,
     CategoryValidationRule,
@@ -115,7 +115,9 @@ def test_validate_product(validator):
                 is_main=True,
             )
         ],
-        attributes={"رنگ": ["سبز", "سرمه ای"]},
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سبز", "سرمه ای"]),
+        },
     )
 
     rules = validator.validate_product(product)
@@ -139,7 +141,9 @@ def test_validate_variation(validator):
                 is_main=True,
             )
         ],
-        attributes={"رنگ": "سبز"},
+        attributes={
+            "color": VariationAttribute(key="color", display_name="رنگ", value="سبز"),
+        },
     )
 
     rules = validator.validate_variation(variation)
@@ -165,7 +169,9 @@ def test_validation_report(validator):
                 is_main=True,
             )
         ],
-        attributes={"رنگ": ["سبز"]},
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سبز"])
+        },
     )
 
     report = validator.validate_products([product])
@@ -185,7 +191,9 @@ def test_duplicate_sku(validator):
         stock_status="instock",
         categories=["کیف مردانه"],
         images=[],
-        attributes={"رنگ": ["سبز"]},  # Valid attributes to avoid extra errors
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سبز"])
+        },  # Valid attributes to avoid extra errors
     )
 
     product2 = Product(
@@ -198,7 +206,9 @@ def test_duplicate_sku(validator):
         stock_status="instock",
         categories=["کیف مردانه"],
         images=[],
-        attributes={"رنگ": ["سرمه ای"]},  # Valid attributes to avoid extra errors
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سرمه ای"])
+        },  # Valid attributes to avoid extra errors
     )
 
     report = validator.validate_products([product1, product2])

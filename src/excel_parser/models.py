@@ -11,6 +11,24 @@ Defines Pydantic models for:
 from pydantic import BaseModel, Field
 
 
+class ProductAttribute(BaseModel):
+    """Model for product attributes with Persian display name."""
+
+    key: str = Field(..., description="Attribute key (e.g., 'color')")
+    display_name: str = Field(..., description="Attribute display name (Persian, e.g., 'رنگ')")
+    values: list[str] = Field(
+        ..., description="List of attribute values (e.g., ['سبز', 'سرمه ای'])"
+    )
+
+
+class VariationAttribute(BaseModel):
+    """Model for variation attributes."""
+
+    key: str = Field(..., description="Attribute key (e.g., 'color')")
+    display_name: str = Field(..., description="Attribute display name (Persian, e.g., 'رنگ')")
+    value: str = Field(..., description="Attribute value (e.g., 'سبز')")
+
+
 class Category(BaseModel):
     """Model for product categories."""
 
@@ -59,8 +77,8 @@ class Variation(BaseModel):
     stock_quantity: int | None = Field(None, description="Stock count (default: 0 if NaN)")
     stock_status: str = Field("instock", description="Stock status (instock/outofstock)")
     images: list[ProductImage] = Field([], description="List of variation images")
-    attributes: dict[str, str] = Field(
-        {}, description="Variation attributes (e.g., {'رنگ': 'سبز'})"
+    attributes: dict[str, VariationAttribute] = Field(
+        {}, description="Variation attributes (e.g., {'رنگ': VariationAttribute(key='color', display_name='رنگ', value='سبز')})"
     )
 
 
@@ -87,8 +105,8 @@ class Product(BaseModel):
     canonical_url: str | None = Field(None, description="Canonical URL (Yoast)")
     images: list[ProductImage] = Field([], description="List of product images")
     gallery_images: list[ProductImage] = Field([], description="List of gallery images")
-    attributes: dict[str, list[str]] = Field(
-        {}, description="Product attributes (e.g., {'رنگ': ['سبز', 'سرمه ای']})"
+    attributes: dict[str, ProductAttribute] = Field(
+        {}, description="Product attributes (e.g., {'color': ProductAttribute(key='color', display_name='رنگ', values=['سبز', 'سرمه ای'])})"
     )
     sale_tag: str | None = Field(None, description="Sale tag text (e.g., 'تخفیف')")
     variations: list[Variation] = Field([], description="List of product variations")

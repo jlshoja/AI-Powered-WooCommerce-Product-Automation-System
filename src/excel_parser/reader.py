@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .models import Attribute, Category, Product, ProductImage, Variation
+from .models import Attribute, Category, Product, ProductAttribute, ProductImage, Variation, VariationAttribute
 
 
 class ExcelReader:
@@ -118,11 +118,18 @@ class ExcelReader:
             # Parse attributes
             attributes = {}
             for col in df_products.columns:
-                if col.startswith("attribute:"):
-                    attr_name = col.split(":")[1]
+                if col.startswith("attribute:") and not col.startswith("attribute_name:"):
+                    attr_key = col.split(":")[1]
                     attr_values = self._clean_attribute_value(row[col])
                     if attr_values:
-                        attributes[attr_name] = attr_values
+                        # Get Persian display name from attribute_name column
+                        attr_name_col = f"attribute_name:{attr_key}"
+                        display_name = self._clean_string(row.get(attr_name_col, attr_key))
+                        attributes[attr_key] = ProductAttribute(
+                            key=attr_key,
+                            display_name=display_name,
+                            values=attr_values,
+                        )
 
             # Parse variations
             variations = []
@@ -142,11 +149,18 @@ class ExcelReader:
 
                 var_attributes = {}
                 for col in df_variations.columns:
-                    if col.startswith("attribute:"):
-                        attr_name = col.split(":")[1]
+                    if col.startswith("attribute:") and not col.startswith("attribute_name:"):
+                        attr_key = col.split(":")[1]
                         attr_value = self._clean_string(var_row[col])
                         if attr_value:
-                            var_attributes[attr_name] = attr_value
+                            # Get Persian display name from attribute_name column
+                            attr_name_col = f"attribute_name:{attr_key}"
+                            display_name = self._clean_string(var_row.get(attr_name_col, attr_key))
+                            var_attributes[attr_key] = VariationAttribute(
+                                key=attr_key,
+                                display_name=display_name,
+                                value=attr_value,
+                            )
 
                 variation = Variation(
                     id=self._clean_string(var_row["ID"]),
@@ -218,11 +232,18 @@ class ExcelReader:
             # Parse attributes
             attributes = {}
             for col in df.columns:
-                if col.startswith("attribute:"):
-                    attr_name = col.split(":")[1]
+                if col.startswith("attribute:") and not col.startswith("attribute_name:"):
+                    attr_key = col.split(":")[1]
                     attr_value = self._clean_string(row[col])
                     if attr_value:
-                        attributes[attr_name] = attr_value
+                        # Get Persian display name from attribute_name column
+                        attr_name_col = f"attribute_name:{attr_key}"
+                        display_name = self._clean_string(row.get(attr_name_col, attr_key))
+                        attributes[attr_key] = VariationAttribute(
+                            key=attr_key,
+                            display_name=display_name,
+                            value=attr_value,
+                        )
 
             # Create Variation model
             variation = Variation(

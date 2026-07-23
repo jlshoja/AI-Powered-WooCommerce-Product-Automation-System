@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.excel_parser.models import Product, ProductImage, Variation
+from src.excel_parser.models import Product, ProductAttribute, ProductImage, Variation, VariationAttribute
 from src.woocommerce.client import WooCommerceClient
 
 
@@ -45,7 +45,9 @@ def test_create_variable_product(client):
                 is_main=True,
             )
         ],
-        attributes={"رنگ": ["سبز", "سرمه ای"]},
+        attributes={
+            "color": ProductAttribute(key="color", display_name="رنگ", values=["سبز", "سرمه ای"])
+        },
         variations=[
             Variation(
                 id="1",
@@ -62,7 +64,9 @@ def test_create_variable_product(client):
                         is_main=True,
                     )
                 ],
-                attributes={"رنگ": "سبز"},
+                attributes={
+                    "color": VariationAttribute(key="color", display_name="رنگ", value="سبز")
+                },
             )
         ],
     )
@@ -88,7 +92,9 @@ def test_create_variation_failure(client):
         stock_quantity=10,
         stock_status="instock",
         images=[],
-        attributes={"رنگ": "سبز"},
+        attributes={
+            "color": VariationAttribute(key="color", display_name="رنگ", value="سبز")
+        },
     )
 
     with patch.object(client, "_retry_request") as mock_retry:
