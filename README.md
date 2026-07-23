@@ -1,195 +1,192 @@
 # AI-Powered WooCommerce Product Automation System
 
-## Overview
-Automate WooCommerce product imports from Excel with **AI-generated SEO content**, **validation**, **FTP bulk upload**, and **crash-recoverable batch processing**.
+Import products from CSV/Excel into WooCommerce with AI-generated SEO content, image management, and crash recovery.
 
-## Features
-- ✅ **Excel to WooCommerce**: Import products, variations, categories, and images
-- ✅ **CSV Auto-Conversion**: CSV input auto-converts to XLSX on startup
-- ✅ **AI-Powered SEO**: Generate titles, descriptions, tags, and category suggestions
-- ✅ **AI Provider Fallback**: Multiple AI providers with automatic fallback on failure
-- ✅ **External Credentials**: API keys from external Excel file (security)
-- ✅ **Single Product Test**: Test with `--test-sku` before full batch
-- ✅ **Dry Run Mode**: Validate without uploading (`--dry-run`)
-- ✅ **Validation**: Check for missing fields, duplicate SKUs, and invalid data
-- ✅ **Image Management**: Download from local folder or your website, validate, upload
-- ✅ **FTP Bulk Upload**: Fast bulk image upload via FTP (`--upload-mode ftp`)
-- ✅ **REST API Upload**: Default image upload via WordPress REST API
-- ✅ **Batch Automation**: Schedule imports and track progress
-- ✅ **Rate Limiting**: Token bucket algorithm (prevents 429 errors)
-- ✅ **SSRF Protection**: Blocks private IPs in image URLs
-- ✅ **HTML Sanitization**: Bleach sanitization on AI output
-- ✅ **Idempotent Imports**: Upsert by SKU - safe to re-run
-- ✅ **Crash Recovery**: Per-stage checkpoints, resume from last good state
-- ✅ **Retry Failed**: Re-run only failed products from last import
+## What It Does
 
-## Quick Start (0 to 100)
+1. Reads product data from CSV/Excel (products, variations, categories, attributes, images)
+2. Optionally generates SEO titles, descriptions, tags via OpenAI
+3. Creates/updates products in WooCommerce via REST API
+4. Downloads and uploads images (via REST API or FTP bulk upload)
+5. Syncs variations, attributes, stock, and gallery
 
-### 1. Prerequisites
+## Prerequisites
+
 - Python 3.10+
 - WooCommerce REST API credentials (Consumer Key/Secret)
 - WordPress Application Password (for media uploads)
 - OpenAI API key (optional, for AI SEO content)
-- Excel file or CSV with product data
+- CSV or Excel file with product data
 
-### 2. Installation
+## Installation
+
 ```bash
-git clone <repo-url>
+git clone https://github.com/jlshoja/AI-Powered-WooCommerce-Product-Automation-System
 cd AI-Powered-WooCommerce-Product-Automation-System
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/Mac
 pip install -e .
 ```
 
-### 3. Configuration
+## Configuration
+
+Copy `.env.example` to `.env` and fill in:
+
 ```bash
-# Copy example env file
 cp .env.example .env
-
-# Edit .env with your credentials
-# WOOCOMMERCE_API_URL=https://your-store.com
-# WOOCOMMERCE_CONSUMER_KEY=ck_xxx
-# WOOCOMMERCE_CONSUMER_SECRET=cs_xxx
-# WP_USER=admin
-# WP_APP_PASSWORD=xxxx xxxx xxxx xxxx
-# OPENAI_API_KEY=sk-xxx (optional)
 ```
 
-**Or use external credentials Excel** (recommended for security):
-See [QUICK_START.md](docs/QUICK_START.md#q13-ai-api-configuration) for format.
+Key settings in `.env`:
+```
+WOOCOMMERCE_API_URL=https://luxbaz.com
+WOOCOMMERCE_CONSUMER_KEY=ck_xxx
+WOOCOMMERCE_CONSUMER_SECRET=cs_xxx
+WP_USER=admin
+WP_APP_PASSWORD=xxxx xxxx xxxx xxxx
+IMAGE_ATTACHMENT_MODE=gallery
+IMAGE_UPLOAD_MODE=restapi
+OPENAI_API_KEY=sk-xxx          # optional
+```
 
-### 4. Prepare Input Data
+## Input Data
 
-**Option A: From CSV (Recommended)**
-Place your CSV at `input/Product_Master.csv`. The project auto-converts to XLSX on startup.
+Place your CSV at `input/Product_Master.csv`. Required columns:
 
-**Option B: From Excel**
-Place `Product_Master.xlsx` in `input/` folder with 5 sheets.
+| Column | Description |
+|--------|-------------|
+| `sku` | Unique product identifier |
+| `post_title` | Product name |
+| `regular_price` | Price |
+| `attribute:color` | Color values (pipe-separated) |
+| `attribute_name:color` | Persian label (e.g., رنگ) |
+| `image_filename` | Local image filenames (pipe-separated) |
+| `gallery_images` | Image URLs (pipe-separated) |
 
-### 5. Run Import
+See `docs/Excel_Data_Dictionary.md` for full schema.
 
-**Windows (easiest):** Double-click `run.bat` and select an option.
+## Running
 
-**Command line:**
+### Full import
 ```bash
-# Full import
 python -m src.main
+```
 
-# Test single product first
-python -m src.main --test-sku 2106
+### Test single product
+```bash
+python -m src.main --test-sku 5718
+```
 
-# Dry run (validate only)
+### Dry run (validate only)
+```bash
 python -m src.main --dry-run
+```
 
-# With external credentials
+### FTP bulk upload (for 1000+ images)
+```bash
+python -m src.main --upload-mode ftp
+```
+
+### Resume from checkpoint
+```bash
+python -m src.main --resume
+```
+
+### Retry failed products only
+```bash
+python -m src.main --retry-failed
+```
+
+### With external credentials
+```bash
 python -m src.main --credentials C:\path\to\providers.xlsx
-
-# FTP bulk upload mode (for large imports)
-python -m src.main --upload-mode ftp
-
-# Resume from last checkpoint (skip completed products)
-python -m src.main --resume
-
-# Re-run only failed products from last import
-python -m src.main --retry-failed
 ```
 
-### 6. Check Results
-- `import_report.xlsx` - Success/failure per SKU
-- `output/import_checkpoint.json` - Per-stage progress (for resume)
-- `output/logs/system.log` - Detailed logs
+### Windows menu
+Double-click `run.bat`.
 
-## Image Upload Modes
+## CLI Flags
 
-### REST API Mode (default)
-Images uploaded via WordPress REST API. Safe, checks for duplicates.
-```bash
-python -m src.main --upload-mode restapi
-```
-
-### FTP Mode (for 1000+ images)
-Fast bulk upload via FTP. Requires one-time PHP script setup.
-```bash
-# One-time: upload scripts/ftp-register-media.php to WordPress root
-# Then:
-python -m src.main --upload-mode ftp
-```
-See [DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) for FTP setup details.
-
-## Crash Recovery
-
-The pipeline saves checkpoints after each stage:
-1. `product_created` → Product exists in WooCommerce
-2. `variations_created` → All variations synced
-3. `images_uploaded` → All images attached
-4. `completed` → Fully imported
-
-If the process crashes:
-```bash
-# Resume from last checkpoint (skip completed products)
-python -m src.main --resume
-
-# Or re-run only failed products
-python -m src.main --retry-failed
-```
-
-## WooCommerce Alignment
-
-Imported products match manually-created products:
-- **manage_stock**: `true` for simple products, `false` for variable (variations manage own stock)
-- **Color attribute**: `visible: false` (matches WP Admin default)
-- **Other attributes**: `visible: true` (shown on product page)
-
-## AI Provider Fallback
-
-If you have multiple AI providers in `providers.xlsx`, the project automatically falls back:
-1. Try primary provider (e.g., OpenAI)
-2. If fails → try next provider (e.g., OpenRouter)
-3. All fail → AI disabled, import continues without AI content
-
-## Key Documents
-
-| Priority | Document | Purpose |
-|----------|----------|---------|
-| **1** | [README.md](README.md) | This file - Quick start |
-| **2** | [docs/QUICK_START.md](docs/QUICK_START.md) | Setup guide + FAQ |
-| **3** | [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) | Configuration, CLI flags |
-| **4** | [docs/SECURITY.md](docs/SECURITY.md) | Security measures |
-| **5** | [docs/PROJECT_KNOWLEDGE.md](docs/PROJECT_KNOWLEDGE.md) | Architecture, troubleshooting |
-
-## Commands
-```bash
-# Run tests
-pytest -v
-
-# Lint
-ruff check src/ tests/
-
-# Type check
-mypy src/
-
-# Restructure Excel (if starting from CSV)
-python scripts/restructure_excel.py
-```
-
-## CLI Flags Reference
 | Flag | Description |
 |------|-------------|
-| `--test-sku SKU` | Import only a single product by SKU |
+| `--test-sku SKU` | Import only one product by SKU |
 | `--dry-run` | Validate without uploading |
 | `--batch-size N` | Products per batch (default: 10) |
 | `--credentials PATH` | External credentials Excel file |
 | `--upload-mode {restapi,ftp}` | Image upload mode (default: restapi) |
-| `--resume` | Skip fully completed products (use checkpoint) |
+| `--resume` | Skip completed products (use checkpoint) |
 | `--retry-failed` | Re-run only failed products from last import |
 
+## Image Upload Modes
+
+**REST API (default):** Images uploaded via WordPress REST API. Checks for duplicates by filename.
+
+**FTP (for large imports):** Bulk upload via FTP, then auto-register as WordPress media. One-time setup: upload `scripts/ftp-register-media.php` to WordPress root.
+
+## Crash Recovery
+
+The pipeline saves checkpoints after each stage:
+1. `product_created` — Product exists in WooCommerce
+2. `variations_created` — All variations synced
+3. `images_uploaded` — All images attached
+4. `completed` — Fully imported
+
+If the process crashes:
+```bash
+python -m src.main --resume        # skip completed products
+python -m src.main --retry-failed  # re-run only failures
+```
+
+## Output Files
+
+| File | Description |
+|------|-------------|
+| `import_report.xlsx` | Success/failure per SKU |
+| `output/import_checkpoint.json` | Per-stage progress (for resume) |
+| `output/media_cache.json` | Uploaded image IDs (avoids re-upload) |
+| `output/logs/system.log` | Detailed logs |
+
+## Folder Structure
+
+```
+├── input/
+│   ├── Product_Master.csv     # Your product data
+│   └── images/                # Local product images
+├── output/
+│   ├── logs/                  # System logs
+│   ├── media_cache.json       # Image upload cache
+│   └── import_checkpoint.json # Crash recovery checkpoints
+├── config/
+│   └── settings.yaml          # App configuration
+├── scripts/
+│   └── ftp-register-media.php # WordPress FTP media registration
+├── src/
+│   ├── main.py                # Entry point
+│   ├── automation/            # Batch import, tracking, checkpoints
+│   ├── woocommerce/           # WC API client
+│   ├── image_manager/         # Image download, upload, attach
+│   ├── excel_parser/          # CSV/Excel parsing
+│   ├── ai/                    # AI SEO content generation
+│   └── validator/             # Data validation
+├── tests/                     # Unit tests
+├── .env.example               # Config template
+└── run.bat                    # Windows launcher
+```
+
+## Testing
+
+```bash
+pytest -v                      # Run all 46 tests
+pytest tests/test_woocommerce/ # WooCommerce tests only
+```
+
 ## Troubleshooting
+
 | Issue | Solution |
 |-------|----------|
-| 429 Rate Limited | Reduce `rate_limit_rps` in config/settings.yaml |
-| Images not uploading | Check `input/images/` or verify `image_url` is accessible |
-| Validation fails | Check `validation_errors.xlsx` |
-| AI not working | Verify API key in .env or providers.xlsx |
-| API key invalid | Project logs warning and continues without AI |
-| Import hangs | Check `output/logs/system.log` for retries |
-| Product out of stock | Check variation stock quantities (parent has manage_stock=false) |
+| Product out of stock | Check variation stock (parent has manage_stock=false) |
 | Colors show as dropdown | Ensure IMAGE_ATTACHMENT_MODE=gallery, color attribute is global |
+| Images not uploading | Check `input/images/` or verify image URLs are accessible |
+| 429 Rate Limited | Reduce rate_limit_rps in config/settings.yaml |
 | Resume not working | Check `output/import_checkpoint.json` exists |
+| AI not working | Verify OpenAI API key in .env |
