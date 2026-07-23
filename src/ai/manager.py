@@ -24,6 +24,7 @@ class AIManager:
         rate_limit_burst: int = 5,
         providers: list[dict] | None = None,
         ai_client: AIClient = None,
+        prompts_config: dict | None = None,
     ):
         """Initialize the AIManager.
 
@@ -35,10 +36,12 @@ class AIManager:
             rate_limit_burst: Burst limit for primary provider
             providers: List of provider configs for fallback (from credentials Excel)
             ai_client: Pre-built AIClient instance (overrides other params)
+            prompts_config: Optional dict with custom prompts from ai_prompts.yaml
         """
         self.logger = Logger(__name__).get_logger()
         self._providers = []
         self._current_provider_index = 0
+        self._prompts_config = prompts_config or {}
 
         if ai_client is not None:
             # Pre-built client provided
@@ -53,6 +56,7 @@ class AIManager:
                         base_url=p.get("base_url"),
                         rate_limit_rps=rate_limit_rps,
                         rate_limit_burst=rate_limit_burst,
+                        prompts_config=self._prompts_config,
                     )
                     self._providers.append(client)
                 except Exception as e:
@@ -65,6 +69,7 @@ class AIManager:
                 base_url=base_url,
                 rate_limit_rps=rate_limit_rps,
                 rate_limit_burst=rate_limit_burst,
+                prompts_config=self._prompts_config,
             )
             self._providers = [client]
         else:

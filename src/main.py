@@ -269,10 +269,22 @@ def main():
         }]
 
     if ai_providers:
+        # Load AI prompts from config file
+        prompts_path = Path(__file__).parent.parent / "config" / "ai_prompts.yaml"
+        prompts_config = {}
+        if prompts_path.exists():
+            try:
+                with open(prompts_path, encoding="utf-8") as f:
+                    prompts_config = yaml.safe_load(f) or {}
+                logger.info(f"Loaded AI prompts from: {prompts_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load AI prompts: {e}")
+
         ai_manager = AIManager(
             providers=ai_providers,
             rate_limit_rps=ai_settings.get("rate_limit_rps", 3.0),
             rate_limit_burst=ai_settings.get("rate_burst", 5),
+            prompts_config=prompts_config,
         )
         # Validate API key before starting
         if ai_manager.validate_current_provider():

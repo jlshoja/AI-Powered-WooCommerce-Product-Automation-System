@@ -1,0 +1,39 @@
+# AI Prompts Configuration
+# Edit these prompts to customize AI-generated content.
+# Variables: {product_name}, {attributes}, {description}
+# Leave a prompt empty to skip AI generation for that field.
+
+seo_title:
+  prompt: >
+    Generate an SEO-optimized title in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    The title should be concise, include relevant keywords, and be under 60 characters.
+  max_tokens: 60
+
+seo_description:
+  prompt: >
+    Generate an SEO-optimized description in Persian for a product named '{product_name}'.
+    Here is the current description: '{description}'.
+    The description should be concise, include relevant keywords, and be under 160 characters.
+  max_tokens: 160
+
+product_description:
+  prompt: >
+    Generate a detailed product description in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    The description should highlight key features, benefits, and use cases.
+  max_tokens: 300
+
+tags:
+  prompt: >
+    Generate 5 relevant tags in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    The tags should be comma-separated.
+  max_tokens: 50
+
+categories:
+  prompt: >
+    Suggest 3 relevant categories in Persian for a product named '{product_name}'
+    with the following attributes: {attributes}.
+    The categories should be comma-separated.
+  max_tokens: 50

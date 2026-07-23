@@ -125,6 +125,7 @@ class AIClient:
         base_url: str | None = None,
         rate_limit_rps: float = 3.0,
         rate_limit_burst: int = 5,
+        prompts_config: dict | None = None,
     ):
         """Initialize the AI client.
 
@@ -134,6 +135,7 @@ class AIClient:
             base_url: Optional base URL for non-OpenAI providers (e.g., OpenRouter, Mimo)
             rate_limit_rps: Requests per second limit
             rate_limit_burst: Burst capacity
+            prompts_config: Optional dict with custom prompts from ai_prompts.yaml
         """
         self.api_key = api_key
         self.model = model
@@ -145,6 +147,46 @@ class AIClient:
         self.logger = Logger(__name__).get_logger()
         self._rate_limiter = TokenBucket(rate_limit_rps, rate_limit_burst)
         self._is_valid = None  # Cache validation result
+        self._prompts = prompts_config or {}
+
+    def _get_prompt(self, name: str, **kwargs) -> tuple[str, int]:
+        """Get prompt template and max_tokens from config, with fallback to defaults.
+
+        Returns:
+            Tuple of (formatted_prompt, max_tokens)
+        """
+        defaults = {
+            "seo_title": {
+                "prompt": "Generate an SEO-optimized title in Persian for a product named '{product_name}' with the following attributes: {attributes}. The title should be concise, include relevant keywords, and be under 60 characters.",
+                "max_tokens": 60,
+            },
+            "seo_description": {
+                "prompt": "Generate an SEO-optimized description in Persian for a product named '{product_name}'. Here is the current description: '{description}'. The description should be concise, include relevant keywords, and be under 160 characters.",
+                "max_tokens": 160,
+            },
+            "product_description": {
+                "prompt": "Generate a detailed product description in Persian for a product named '{product_name}' with the following attributes: {attributes}. The description should highlight key features, benefits, and use cases.",
+                "max_tokens": 300,
+            },
+            "tags": {
+                "prompt": "Generate 5 relevant tags in Persian for a product named '{product_name}' with the following attributes: {attributes}. The tags should be comma-separated.",
+                "max_tokens": 50,
+            },
+            "categories": {
+                "prompt": "Suggest 3 relevant categories in Persian for a product named '{product_name}' with the following attributes: {attributes}. The categories should be comma-separated.",
+                "max_tokens": 50,
+            },
+        }
+
+        cfg = self._prompts.get(name, defaults.get(name, {}))
+        template = cfg.get("prompt", defaults.get(name, {}).get("prompt", ""))
+        max_tokens = cfg.get("max_tokens", defaults.get(name, {}).get("max_tokens", 100))
+
+        try:
+            return template.format(**kwargs), max_tokens
+        except KeyError as e:
+            self.logger.warning(f"Missing variable {e} in prompt template for {name}")
+            return template, max_tokens
 
     def validate_api_key(self) -> bool:
         """Validate the API key by making a minimal API call.
@@ -178,17 +220,13 @@ class AIClient:
     def generate_seo_title(self, product_name: str, attributes: dict[str, list[str]]) -> str | None:
         """Generate an SEO title for a product."""
         try:
-            prompt = (
-                f"Generate an SEO-optimized title in Persian for a product named '{product_name}' "
-                f"with the following attributes: {attributes}. "
-                "The title should be concise, include relevant keywords, and be under 60 characters."
-            )
+            prompt, max_tokens = self._get_prompt("seo_title", product_name=product_name, attributes=attributes)
 
             response = self._rate_limited_call(
                 self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=60,
+                max_tokens=max_tokens,
             )
 
             seo_title = sanitize_html(response.choices[0].message.content.strip())
@@ -201,17 +239,13 @@ class AIClient:
     def generate_seo_description(self, product_name: str, description: str) -> str | None:
         """Generate an SEO description for a product."""
         try:
-            prompt = (
-                f"Generate an SEO-optimized description in Persian for a product named '{product_name}'. "
-                f"Here is the current description: '{description}'. "
-                "The description should be concise, include relevant keywords, and be under 160 characters."
-            )
+            prompt, max_tokens = self._get_prompt("seo_description", product_name=product_name, description=description)
 
             response = self._rate_limited_call(
                 self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=160,
+                max_tokens=max_tokens,
             )
 
             seo_description = sanitize_html(response.choices[0].message.content.strip())
@@ -226,17 +260,13 @@ class AIClient:
     ) -> str | None:
         """Generate a product description."""
         try:
-            prompt = (
-                f"Generate a detailed product description in Persian for a product named '{product_name}' "
-                f"with the following attributes: {attributes}. "
-                "The description should highlight key features, benefits, and use cases."
-            )
+            prompt, max_tokens = self._get_prompt("product_description", product_name=product_name, attributes=attributes)
 
             response = self._rate_limited_call(
                 self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
+                max_tokens=max_tokens,
             )
 
             product_description = sanitize_html(response.choices[0].message.content.strip())
@@ -253,17 +283,13 @@ class AIClient:
     ) -> list[str] | None:
         """Generate tags for a product."""
         try:
-            prompt = (
-                f"Generate 5 relevant tags in Persian for a product named '{product_name}' "
-                f"with the following attributes: {attributes}. "
-                "The tags should be comma-separated."
-            )
+            prompt, max_tokens = self._get_prompt("tags", product_name=product_name, attributes=attributes)
 
             response = self._rate_limited_call(
                 self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
+                max_tokens=max_tokens,
             )
 
             tags = [sanitize_html(tag.strip()) for tag in response.choices[0].message.content.split(",") if tag.strip()]
@@ -278,17 +304,13 @@ class AIClient:
     ) -> list[str] | None:
         """Suggest categories for a product."""
         try:
-            prompt = (
-                f"Suggest 3 relevant categories in Persian for a product named '{product_name}' "
-                f"with the following attributes: {attributes}. "
-                "The categories should be comma-separated."
-            )
+            prompt, max_tokens = self._get_prompt("categories", product_name=product_name, attributes=attributes)
 
             response = self._rate_limited_call(
                 self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
+                max_tokens=max_tokens,
             )
 
             categories = [sanitize_html(cat.strip()) for cat in response.choices[0].message.content.split(",") if cat.strip()]
