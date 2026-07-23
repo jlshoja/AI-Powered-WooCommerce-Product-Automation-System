@@ -42,6 +42,8 @@ class WooCommerceClient:
         self.logger = Logger(__name__).get_logger()
         self.client = self._initialize_client()
         self._category_cache: dict[str, int] = {}
+        self._attribute_cache: dict[str, int] = {}  # display_name -> attribute_id
+        self._term_cache: dict[str, dict[str, int]] = {}  # attribute_id -> {term_name: term_id}
 
         # Rate limiting
         endpoint_limits = {
@@ -358,6 +360,65 @@ class WooCommerceClient:
                 resolved.append({"id": tag_id})
         return resolved
 
+    def load_attributes(self) -> None:
+        """Fetch all existing WC attributes and their terms at startup."""
+        self.logger.info("Loading existing WooCommerce attributes and terms...")
+        resp = self._retry_request("get", "products/attributes", params={"per_page": 100})
+        if not resp or not isinstance(resp, list):
+            self.logger.warning("No attributes found in WooCommerce")
+            return
+
+        for attr in resp:
+            attr_name = attr.get("name")
+            attr_id = attr.get("id")
+            if not attr_name or not attr_id:
+                continue
+
+            # Cache attribute ID by name
+            self._attribute_cache[attr_name] = attr_id
+
+            # Fetch terms for this attribute
+            terms_resp = self._retry_request("get", f"products/attributes/{attr_id}/terms", params={"per_page": 100})
+            if terms_resp and isinstance(terms_resp, list):
+                term_map = {}
+                for term in terms_resp:
+                    term_name = term.get("name")
+                    term_id = term.get("id")
+                    if term_name and term_id:
+                        term_map[term_name] = term_id
+                if term_map:
+                    self._term_cache[attr_id] = term_map
+
+        self.logger.info(f"Loaded {len(self._attribute_cache)} attributes with terms")
+
+    def resolve_attribute_id(self, display_name: str) -> int | None:
+        """Resolve attribute display name to WC attribute ID."""
+        return self._attribute_cache.get(display_name)
+
+    def resolve_term_ids(self, attribute_id: int, term_names: list[str]) -> list[dict[str, Any]]:
+        """Resolve term names to WC term IDs, creating if needed."""
+        if attribute_id not in self._term_cache:
+            self._term_cache[attribute_id] = {}
+
+        term_map = self._term_cache[attribute_id]
+        resolved = []
+
+        for name in term_names:
+            term_id = term_map.get(name)
+            if term_id is None:
+                # Create the term
+                resp = self._retry_request("post", f"products/attributes/{attribute_id}/terms", data={"name": name})
+                if resp and resp.get("id"):
+                    term_id = resp["id"]
+                    term_map[name] = term_id
+                    self.logger.info(f"Created term: {name} under attribute {attribute_id} (ID: {term_id})")
+                else:
+                    term_id = None
+            if term_id:
+                resolved.append({"id": term_id})
+
+        return resolved
+
     def _map_product_to_payload(self, product: Product) -> dict[str, Any]:
         """Map a Product model to a WooCommerce API payload."""
         categories = self.resolve_category_ids(product.categories) if product.categories else []
@@ -368,6 +429,32 @@ class WooCommerceClient:
         for v in product.variations:
             variation_attr_names.update(v.attributes.keys())
 
+        attributes_payload = []
+        for attr_key, attr_obj in product.attributes.items():
+            attr_name = attr_obj.display_name
+            attr_values = attr_obj.values
+
+            # Check if we have an existing attribute with this name
+            attr_id = self.resolve_attribute_id(attr_name)
+
+            attr_payload = {
+                "name": attr_name,
+                "options": attr_values,
+                "visible": True,
+                "variation": attr_key in variation_attr_names,
+            }
+
+            if attr_id:
+                # Use existing attribute ID
+                attr_payload["id"] = attr_id
+                # Resolve term IDs for existing terms
+                term_ids = self.resolve_term_ids(attr_id, attr_values)
+                if term_ids:
+                    # Replace options with term objects containing IDs
+                    attr_payload["options"] = term_ids
+
+            attributes_payload.append(attr_payload)
+
         payload = {
             "name": product.post_title,
             "type": "variable" if is_variable else "simple",
@@ -376,15 +463,7 @@ class WooCommerceClient:
             "description": product.description or "",
             "short_description": product.short_description or "",
             "categories": categories,
-            "attributes": [
-                {
-                    "name": attr_obj.display_name,
-                    "options": attr_obj.values,
-                    "visible": True,
-                    "variation": attr_obj.key in variation_attr_names,
-                }
-                for attr_key, attr_obj in product.attributes.items()
-            ],
+            "attributes": attributes_payload,
         }
 
         if is_variable:
